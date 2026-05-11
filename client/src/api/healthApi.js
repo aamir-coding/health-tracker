@@ -1,0 +1,48 @@
+import axios from 'axios'
+
+const BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('ht_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('ht_token')
+      localStorage.removeItem('ht_user')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
+export const authApi = {
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
+  getMe: () => api.get('/auth/me'),
+}
+
+export const logsApi = {
+  getAll: (params) => api.get('/logs', { params }),
+  getRecent: () => api.get('/logs/recent'),
+  getStats: () => api.get('/logs/stats'),
+  create: (data) => api.post('/logs', data),
+  update: (id, data) => api.put(`/logs/${id}`, data),
+  delete: (id) => api.delete(`/logs/${id}`),
+}
+
+export const insightsApi = {
+  getWeekly: (refresh = false) =>
+    api.get('/insights/weekly', { params: refresh ? { refresh: 1 } : {} }),
+}
+
+export default api
