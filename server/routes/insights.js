@@ -28,15 +28,19 @@ router.get('/weekly', async (req, res) => {
       date: { $gte: weekStart },
     });
 
-    const content = await getWeeklyInsight(logs);
+const content = await getWeeklyInsight(logs);
 
-    await Insight.findOneAndUpdate(
-      { userId: req.userId, weekStart: { $gte: weekStart } },
-      { userId: req.userId, weekStart, content },
-      { upsert: true, new: true }
-    );
+const isError = content.startsWith('Could not') || content.startsWith('No data') || content.startsWith('AI insights');
 
-    res.json({ insight: content, cached: false });
+if (!isError) {
+  await Insight.findOneAndUpdate(
+    { userId: req.userId, weekStart: { $gte: weekStart } },
+    { userId: req.userId, weekStart, content },
+    { upsert: true, new: true }
+  );
+}
+
+res.json({ insight: content, cached: false });
   } catch (error) {
     console.error('Insights error:', error);
     res.status(500).json({ error: 'Failed to generate insight' });
