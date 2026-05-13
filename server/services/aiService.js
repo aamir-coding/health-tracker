@@ -31,14 +31,14 @@ Format as a numbered list: 1. ... 2. ... 3. ...
 Do not add any introduction or closing sentence.`;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',
+        model: 'gpt-oss-120b',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 300,
         temperature: 0.7,
