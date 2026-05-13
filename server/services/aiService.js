@@ -38,7 +38,7 @@ Do not add any introduction or closing sentence.`;
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-oss-120b',
+        model: 'llama-3.1-8b-instant',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 300,
         temperature: 0.7,
