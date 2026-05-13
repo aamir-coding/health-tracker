@@ -22,6 +22,11 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters'],
     select: false,
   },
+  height: {
+    type: Number,
+    min: [50, 'Height must be at least 50cm'],
+    max: [300, 'Height value too high'],
+  },
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {

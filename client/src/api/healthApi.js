@@ -14,7 +14,7 @@ api.interceptors.request.use((config) => {
 })
 
 api.interceptors.response.use(
-  (response) => response,
+  (r) => r,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('ht_token')
@@ -29,12 +29,16 @@ export const authApi = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
+  updateProfile: (data) => api.patch('/auth/profile', data),
 }
 
 export const logsApi = {
   getAll: (params) => api.get('/logs', { params }),
   getRecent: () => api.get('/logs/recent'),
   getStats: () => api.get('/logs/stats'),
+  getStreak: () => api.get('/logs/streak'),
+  getHeatmap: () => api.get('/logs/heatmap'),
+  getCompare: () => api.get('/logs/compare'),
   create: (data) => api.post('/logs', data),
   update: (id, data) => api.put(`/logs/${id}`, data),
   delete: (id) => api.delete(`/logs/${id}`),

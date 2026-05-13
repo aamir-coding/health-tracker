@@ -39,13 +39,11 @@ router.get('/stats', async (req, res) => {
   try {
     const logs = await HealthLog.find({ userId: req.userId }).sort({ date: -1 }).limit(30);
     if (!logs.length) return res.json({ averages: {}, latest: null, total: 0 });
-
     const avg = (field) => {
       const vals = logs.filter(l => l[field] != null).map(l => l[field]);
       if (!vals.length) return null;
       return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
     };
-
     res.json({
       averages: {
         weight: avg('weight'),
@@ -62,14 +60,109 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+router.get('/streak', async (req, res) => {
+  try {
+    const logs = await HealthLog.find({ userId: req.userId }).select('date');
+    if (!logs.length) return res.json({ streak: 0, longest: 0 });
+
+    const uniqueDates = [...new Set(
+      logs.map(l => new Date(l.date).toISOString().slice(0, 10))
+    )].sort((a, b) => b.localeCompare(a));
+
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+    let streak = 0;
+    if (uniqueDates[0] === today || uniqueDates[0] === yesterday) {
+      let expected = new Date(uniqueDates[0]);
+      for (const d of uniqueDates) {
+        if (d === expected.toISOString().slice(0, 10)) {
+          streak++;
+          expected = new Date(expected.getTime() - 86400000);
+        } else break;
+      }
+    }
+
+    let longest = streak;
+    let curr = 1;
+    for (let i = 1; i < uniqueDates.length; i++) {
+      const diff = Math.round(
+        (new Date(uniqueDates[i - 1]) - new Date(uniqueDates[i])) / 86400000
+      );
+      if (diff === 1) { curr++; longest = Math.max(longest, curr); }
+      else curr = 1;
+    }
+    if (uniqueDates.length === 1) longest = Math.max(longest, 1);
+
+    res.json({ streak, longest });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch streak' });
+  }
+});
+
+router.get('/heatmap', async (req, res) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 112);
+    const logs = await HealthLog.find({
+      userId: req.userId,
+      date: { $gte: since },
+    }).select('date weight steps sleepHours waterMl mood');
+
+    const map = {};
+    logs.forEach(log => {
+      const key = new Date(log.date).toISOString().slice(0, 10);
+      const count = ['weight', 'steps', 'sleepHours', 'waterMl', 'mood']
+        .filter(f => log[f] != null).length;
+      map[key] = Math.max(map[key] || 0, count);
+    });
+
+    res.json({ heatmap: map });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch heatmap' });
+  }
+});
+
+router.get('/compare', async (req, res) => {
+  try {
+    const now = new Date();
+    const thisWeekStart = new Date(now);
+    thisWeekStart.setDate(now.getDate() - 7);
+    const lastWeekStart = new Date(now);
+    lastWeekStart.setDate(now.getDate() - 14);
+
+    const [thisWeekLogs, lastWeekLogs] = await Promise.all([
+      HealthLog.find({ userId: req.userId, date: { $gte: thisWeekStart } }),
+      HealthLog.find({ userId: req.userId, date: { $gte: lastWeekStart, $lt: thisWeekStart } }),
+    ]);
+
+    const avgOf = (logs, field) => {
+      const vals = logs.filter(l => l[field] != null).map(l => l[field]);
+      if (!vals.length) return null;
+      return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+    };
+
+    const fields = ['steps', 'sleepHours', 'waterMl', 'mood', 'weight'];
+    const thisWeek = {}, lastWeek = {};
+    fields.forEach(f => {
+      thisWeek[f] = avgOf(thisWeekLogs, f);
+      lastWeek[f] = avgOf(lastWeekLogs, f);
+    });
+
+    res.json({ thisWeek, lastWeek });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to compare weeks' });
+  }
+});
+
 const logValidation = [
   body('date').optional().isISO8601().withMessage('Invalid date'),
-  body('weight').optional({ nullable: true }).isFloat({ min: 1, max: 500 }).withMessage('Invalid weight'),
-  body('steps').optional({ nullable: true }).isInt({ min: 0, max: 100000 }).withMessage('Invalid steps'),
-  body('sleepHours').optional({ nullable: true }).isFloat({ min: 0, max: 24 }).withMessage('Invalid sleep hours'),
-  body('waterMl').optional({ nullable: true }).isInt({ min: 0, max: 20000 }).withMessage('Invalid water amount'),
-  body('mood').optional({ nullable: true }).isInt({ min: 1, max: 5 }).withMessage('Mood must be 1–5'),
-  body('notes').optional().isLength({ max: 500 }).withMessage('Notes too long'),
+  body('weight').optional({ nullable: true }).isFloat({ min: 1, max: 500 }),
+  body('steps').optional({ nullable: true }).isInt({ min: 0, max: 100000 }),
+  body('sleepHours').optional({ nullable: true }).isFloat({ min: 0, max: 24 }),
+  body('waterMl').optional({ nullable: true }).isInt({ min: 0, max: 20000 }),
+  body('mood').optional({ nullable: true }).isInt({ min: 1, max: 5 }),
+  body('notes').optional().isLength({ max: 500 }),
 ];
 
 router.post('/', logValidation, async (req, res) => {
