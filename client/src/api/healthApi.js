@@ -2,10 +2,7 @@ import axios from 'axios'
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
-const api = axios.create({
-  baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-})
+const api = axios.create({ baseURL: BASE_URL, headers: { 'Content-Type': 'application/json' } })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('ht_token')
@@ -30,6 +27,10 @@ export const authApi = {
   login: (data) => api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
   updateProfile: (data) => api.patch('/auth/profile', data),
+  updatePreferences: (data) => api.patch('/auth/preferences', data),
+  updateGoals: (data) => api.patch('/auth/goals', data),
+  changePassword: (data) => api.patch('/auth/password', data),
+  deleteAccount: (data) => api.delete('/auth/account', { data }),
 }
 
 export const logsApi = {
@@ -45,8 +46,7 @@ export const logsApi = {
 }
 
 export const insightsApi = {
-  getWeekly: (refresh = false) =>
-    api.get('/insights/weekly', { params: refresh ? { refresh: 1 } : {} }),
+  getWeekly: (refresh = false) => api.get('/insights/weekly', { params: refresh ? { refresh: 1 } : {} }),
 }
 
 export default api
