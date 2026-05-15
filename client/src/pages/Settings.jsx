@@ -25,8 +25,6 @@ const SECTIONS = [
 const LANGUAGES = [
   { code:'en', label:'English', available:true  },
   { code:'hi', label:'Hindi',   available:false },
-  { code:'ta', label:'Tamil',   available:false },
-  { code:'es', label:'Spanish', available:false },
   { code:'fr', label:'French',  available:false },
 ]
 
