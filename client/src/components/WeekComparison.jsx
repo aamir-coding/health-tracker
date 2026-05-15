@@ -67,8 +67,10 @@ export default function WeekComparison() {
                   <td className="py-2.5 text-right font-medium text-gray-800 dark:text-gray-200 text-xs tabular-nums">
                     {curr != null ? `${fmt(curr)} ${unit}` : '—'}
                   </td>
-                  <td className="py-2.5 text-right">
-                    <Delta curr={curr} prev={prev} better={better} />
+                  <td className="py-2.5">
+                    <div className="flex justify-end">
+                      <Delta curr={curr} prev={prev} better={better} />
+                    </div>
                   </td>
                 </tr>
               )
