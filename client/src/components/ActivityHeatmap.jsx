@@ -11,9 +11,7 @@ const COLORS = [
 
 function intensity(count) {
   if (!count) return 0
-  if (count === 1) return 1
-  if (count === 2) return 2
-  if (count <= 4) return 3
+  if (count === 1) return 2
   return 4
 }
 
@@ -28,6 +26,21 @@ export default function ActivityHeatmap() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  const showTooltip = (day, tileEl) => {
+    if (day.future || !tileEl) return
+
+    const tileRect = tileEl.getBoundingClientRect()
+    const cardRect = tileEl.closest('[data-heatmap-card]')?.getBoundingClientRect()
+    if (!cardRect) return
+
+    setTooltip({
+      text: day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      count: day.count,
+      x: tileRect.left - cardRect.left + tileRect.width + 10,
+      y: tileRect.top - cardRect.top - 6,
+    })
+  }
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -60,10 +73,11 @@ export default function ActivityHeatmap() {
   }
 
   return (
-    <div className="card p-5">
+    <div className="card p-5" data-heatmap-card>
       <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Activity — last 16 weeks</h2>
 
-      <div className="overflow-x-auto">
+      <div className="relative">
+        <div className="overflow-x-auto">
         <div style={{ minWidth: 520 }}>
           <div style={{ display: 'flex', marginBottom: 4, marginLeft: 20 }}>
             {weeks.map((week, wi) => {
@@ -94,14 +108,7 @@ export default function ActivityHeatmap() {
                     key={di}
                     className={`rounded-sm ${day.future ? 'opacity-0' : COLORS[intensity(day.count)]}`}
                     style={{ width: 12, height: 12, cursor: day.future ? 'default' : 'default' }}
-                    onMouseEnter={(e) => {
-                      if (!day.future) setTooltip({
-                        text: day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                        count: day.count,
-                        x: e.clientX,
-                        y: e.clientY,
-                      })
-                    }}
+                    onMouseEnter={(e) => showTooltip(day, e.currentTarget)}
                     onMouseLeave={() => setTooltip(null)}
                   />
                 ))}
@@ -118,12 +125,15 @@ export default function ActivityHeatmap() {
           </div>
         </div>
       </div>
+    </div>
 
       {tooltip && (
-        <div className="fixed z-50 bg-gray-900 dark:bg-gray-700 text-white text-xs px-2.5 py-1.5 rounded-lg pointer-events-none shadow-lg"
-          style={{ left: tooltip.x + 12, top: tooltip.y - 36 }}>
+        <div
+          className="absolute z-50 bg-gray-900 dark:bg-gray-700 text-white text-xs px-2.5 py-1.5 rounded-lg pointer-events-none shadow-lg"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
           <div className="font-medium">{tooltip.text}</div>
-          <div className="text-gray-300">{tooltip.count} metric{tooltip.count !== 1 ? 's' : ''} logged</div>
+          <div className="text-gray-300">{tooltip.count} log{tooltip.count !== 1 ? 's' : ''} logged</div>
         </div>
       )}
     </div>

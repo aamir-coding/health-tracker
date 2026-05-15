@@ -104,17 +104,16 @@ router.get('/heatmap', async (req, res) => {
   try {
     const since = new Date();
     since.setDate(since.getDate() - 112);
+    // Count number of log entries per date (one per saved log)
     const logs = await HealthLog.find({
       userId: req.userId,
       date: { $gte: since },
-    }).select('date weight steps sleepHours waterMl mood');
+    }).select('date');
 
     const map = {};
     logs.forEach(log => {
       const key = new Date(log.date).toISOString().slice(0, 10);
-      const count = ['weight', 'steps', 'sleepHours', 'waterMl', 'mood']
-        .filter(f => log[f] != null).length;
-      map[key] = Math.max(map[key] || 0, count);
+      map[key] = (map[key] || 0) + 1;
     });
 
     res.json({ heatmap: map });
