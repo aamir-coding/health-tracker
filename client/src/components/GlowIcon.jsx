@@ -1,5 +1,5 @@
 import { useTheme } from '../context/ThemeContext'
-import { Frown, Meh, Smile, SmilePlus, Star } from 'lucide-react'
+import { Frown, Meh, Smile, SmilePlus, Laugh } from 'lucide-react'
 
 const COLORS = {
   indigo: { bg:'rgba(99,102,241,0.13)',  border:'rgba(99,102,241,0.22)',  icon:'#6366f1', glow:'rgba(99,102,241,0.32)',  dBg:'rgba(99,102,241,0.22)',  dBorder:'rgba(99,102,241,0.42)', dIcon:'#818cf8', dGlow:'rgba(99,102,241,0.58)' },
@@ -72,7 +72,7 @@ export default function GlowIcon({
   )
 }
 
-const MOOD_ICON_MAP  = { 1: Frown, 2: Meh, 3: Smile, 4: SmilePlus, 5: Star }
+const MOOD_ICON_MAP  = { 1: Frown, 2: Meh, 3: Smile, 4: SmilePlus, 5: Laugh }
 const MOOD_COLOR_MAP = { 1: 'red', 2: 'amber', 3: 'cyan', 4: 'green', 5: 'violet' }
 
 export function MoodIcon({ mood, size = 'sm', ...props }) {

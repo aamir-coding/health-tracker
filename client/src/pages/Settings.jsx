@@ -6,7 +6,7 @@ import {
   Trash2, ChevronRight, Sun, Moon, Monitor, Globe,
   Ruler, Scale, Footprints, Droplets, Smile, Lightbulb,
   CalendarDays, BarChart2, Smartphone, Heart, Activity,
-  Frown, Meh, SmilePlus, Star,
+  Frown, Meh, SmilePlus, Laugh,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -613,7 +613,7 @@ function GoalsSection({ user, updateUser }) {
     { v:2, icon:Meh,      color:'amber'  },
     { v:3, icon:Smile,    color:'cyan'   },
     { v:4, icon:SmilePlus,color:'green'  },
-    { v:5, icon:Star,     color:'violet' },
+    { v:5, icon:Laugh,    color:'violet' },
   ]
   const MOOD_NAMES = ['','Very bad','Bad','Okay','Good','Great']
 

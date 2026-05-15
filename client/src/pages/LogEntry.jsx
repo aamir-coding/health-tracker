@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ChevronLeft, Check,
   CalendarDays, Footprints, Moon, Droplets, Scale, FileText,
-  Frown, Meh, Smile, SmilePlus, Star,
+  Frown, Meh, Smile, SmilePlus, Laugh,
 } from 'lucide-react'
 import { logsApi } from '../api/healthApi'
 import GlowIcon from '../components/GlowIcon'
@@ -14,7 +14,7 @@ const MOODS = [
   { value:2, icon:Meh,      color:'amber',  label:'Bad'      },
   { value:3, icon:Smile,    color:'cyan',   label:'Okay'     },
   { value:4, icon:SmilePlus,color:'green',  label:'Good'     },
-  { value:5, icon:Star,     color:'violet', label:'Great'    },
+  { value:5, icon:Laugh,    color:'violet', label:'Great'    },
 ]
 
 const today = () => new Date().toISOString().slice(0, 10)
