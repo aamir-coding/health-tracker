@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  SquarePen, Footprints, Moon, Droplets, Smile, ScanHeart,
+  SquarePen, Footprints, Moon, Droplets, Smile, HeartPulse,
   Flame, Trophy, Sprout, Target, Activity, Heart,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -274,7 +274,7 @@ export default function Dashboard() {
             {/* BMI */}
             <div className="card p-5">
               <div className="flex items-center gap-2.5 mb-3">
-                <GlowIcon icon={ScanHeart} color="amber" size="sm" />
+                <GlowIcon icon={HeartPulse} color="amber" size="sm" />
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">BMI</span>
               </div>
               {bmi ? (
