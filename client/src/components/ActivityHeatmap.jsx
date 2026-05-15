@@ -3,16 +3,14 @@ import { logsApi } from '../api/healthApi'
 
 const COLORS = [
   'bg-gray-100 dark:bg-gray-800',
-  'bg-indigo-100 dark:bg-indigo-900/60',
-  'bg-indigo-200 dark:bg-indigo-700/70',
-  'bg-indigo-400 dark:bg-indigo-500',
+  'bg-indigo-300 dark:bg-indigo-600',
   'bg-indigo-600 dark:bg-indigo-400',
 ]
 
 function intensity(count) {
   if (!count) return 0
-  if (count === 1) return 2
-  return 4
+  if (count === 1) return 1
+  return 2
 }
 
 export default function ActivityHeatmap() {
@@ -116,7 +114,7 @@ export default function ActivityHeatmap() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 10, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 10, justifyContent: 'flex-end' }}>
             <span className="text-gray-400 dark:text-gray-500" style={{ fontSize: 11 }}>Less</span>
             {COLORS.map((cls, i) => (
               <div key={i} className={`rounded-sm ${cls}`} style={{ width: 12, height: 12 }} />
