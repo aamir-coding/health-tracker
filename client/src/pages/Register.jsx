@@ -72,7 +72,7 @@ export default function Register() {
 
         {/* Glass card */}
         <div className="card p-7">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {error && (
               <div className="alert-glass alert-error">
                 {error}

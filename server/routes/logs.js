@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * limit;
     const [logs, total] = await Promise.all([
-      HealthLog.find({ userId: req.userId }).sort({ date: -1 }).skip(skip).limit(limit),
+      HealthLog.find({ userId: req.userId }).sort({ date: -1, createdAt: -1, _id: -1 }).skip(skip).limit(limit),
       HealthLog.countDocuments({ userId: req.userId }),
     ]);
     res.json({ logs, total, page, pages: Math.ceil(total / limit) });
@@ -28,7 +28,7 @@ router.get('/recent', async (req, res) => {
     const logs = await HealthLog.find({
       userId: req.userId,
       date: { $gte: sevenDaysAgo },
-    }).sort({ date: 1 });
+    }).sort({ date: -1, createdAt: -1, _id: -1 });
     res.json({ logs });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch recent logs' });
@@ -37,7 +37,7 @@ router.get('/recent', async (req, res) => {
 
 router.get('/stats', async (req, res) => {
   try {
-    const logs = await HealthLog.find({ userId: req.userId }).sort({ date: -1 }).limit(30);
+    const logs = await HealthLog.find({ userId: req.userId }).sort({ date: -1, createdAt: -1, _id: -1 }).limit(30);
     if (!logs.length) return res.json({ averages: {}, latest: null, total: 0 });
     const avg = (field) => {
       const vals = logs.filter(l => l[field] != null).map(l => l[field]);
