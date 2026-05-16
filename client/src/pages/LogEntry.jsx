@@ -124,18 +124,12 @@ export default function LogEntry() {
 
             {/* Alerts */}
             {error && (
-              <div
-                className="text-red-700 dark:text-red-300 text-sm px-4 py-3 rounded-xl"
-                style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.22)' }}
-              >
+              <div className="alert-glass alert-error">
                 {error}
               </div>
             )}
             {success && (
-              <div
-                className="flex items-center gap-2 text-green-700 dark:text-green-300 text-sm px-4 py-3 rounded-xl"
-                style={{ background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.22)' }}
-              >
+              <div className="alert-glass alert-success flex items-center gap-2">
                 <Check size={15} />Saved! Taking you to the dashboard…
               </div>
             )}
@@ -161,7 +155,7 @@ export default function LogEntry() {
               </div>
               <div>
                 <IconLabel icon={Moon} color="purple" hint="hours">Sleep</IconLabel>
-                <input type="number" className="input-field" placeholder="e.g. 7.5" value={form.sleepHours} min={0} max={24} step={0.5} onChange={e => set('sleepHours', e.target.value)} />
+                <input type="number" className="input-field" placeholder="e.g. 7.1" value={form.sleepHours} min={0} max={24} step={0.1} onChange={e => set('sleepHours', e.target.value)} />
               </div>
             </div>
 
@@ -169,7 +163,7 @@ export default function LogEntry() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <IconLabel icon={Droplets} color="cyan" hint="ml">Water</IconLabel>
-                <input type="number" className="input-field" placeholder="e.g. 2000" value={form.waterMl} min={0} max={20000} step={50} onChange={e => set('waterMl', e.target.value)} />
+                <input type="number" className="input-field" placeholder="e.g. 2130" value={form.waterMl} min={0} max={20000} step={1} onChange={e => set('waterMl', e.target.value)} />
               </div>
               <div>
                 <IconLabel icon={Scale} color="amber" hint="kg">Weight</IconLabel>
