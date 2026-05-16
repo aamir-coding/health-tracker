@@ -49,6 +49,12 @@ export default function LogEntry() {
   const [success, setSuccess] = useState(false)
   const [error,   setError]   = useState('')
 
+  const isWholeNumber = (value) => value === '' || /^\d+$/.test(value)
+  const isDecimalOnePlace = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
+  const isSleepValid = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
+  const isWaterValid = (value) => value === '' || /^\d+$/.test(value)
+  const withinRange = (value, min, max) => value === '' || (Number(value) >= min && Number(value) <= max)
+
   useEffect(() => {
     if (existing) {
       setForm({
@@ -80,6 +86,24 @@ export default function LogEntry() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    if (!isWholeNumber(form.steps) || !withinRange(form.steps, 0, 100000)) {
+      setError('Steps must be a whole number between 0 and 100000.')
+      return
+    }
+    if (!isDecimalOnePlace(form.weight) || !withinRange(form.weight, 1, 500)) {
+      setError('Weight must be a number with at most one decimal place.')
+      return
+    }
+    if (!isSleepValid(form.sleepHours) || !withinRange(form.sleepHours, 0, 24)) {
+      setError('Sleep must be a number with at most one decimal place.')
+      return
+    }
+    if (!isWaterValid(form.waterMl) || !withinRange(form.waterMl, 0, 20000)) {
+      setError('Water must be a whole number between 0 and 20000.')
+      return
+    }
+
     setLoading(true)
     try {
       const payload = sanitise(form)
@@ -120,7 +144,7 @@ export default function LogEntry() {
         </div>
 
         <div className="card p-6">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
 
             {/* Alerts */}
             {error && (
@@ -151,11 +175,11 @@ export default function LogEntry() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <IconLabel icon={Footprints} color="indigo" hint="0–100,000">Steps</IconLabel>
-                <input type="number" className="input-field" placeholder="e.g. 7500" value={form.steps} min={0} max={100000} step={1} onChange={e => set('steps', e.target.value)} />
+                <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 7500" value={form.steps} onChange={e => set('steps', e.target.value)} />
               </div>
               <div>
                 <IconLabel icon={Moon} color="purple" hint="hours">Sleep</IconLabel>
-                <input type="number" className="input-field" placeholder="e.g. 7.1" value={form.sleepHours} min={0} max={24} step={0.1} onChange={e => set('sleepHours', e.target.value)} />
+                <input type="text" inputMode="decimal" className="input-field" placeholder="e.g. 7.1" value={form.sleepHours} onChange={e => set('sleepHours', e.target.value)} />
               </div>
             </div>
 
@@ -163,11 +187,11 @@ export default function LogEntry() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <IconLabel icon={Droplets} color="cyan" hint="ml">Water</IconLabel>
-                <input type="number" className="input-field" placeholder="e.g. 2130" value={form.waterMl} min={0} max={20000} step={1} onChange={e => set('waterMl', e.target.value)} />
+                <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 2130" value={form.waterMl} onChange={e => set('waterMl', e.target.value)} />
               </div>
               <div>
                 <IconLabel icon={Scale} color="amber" hint="kg">Weight</IconLabel>
-                <input type="number" className="input-field" placeholder="e.g. 68.5" value={form.weight} min={1} max={500} step={0.1} onChange={e => set('weight', e.target.value)} />
+                <input type="text" inputMode="decimal" className="input-field" placeholder="e.g. 68.5" value={form.weight} onChange={e => set('weight', e.target.value)} />
               </div>
             </div>
 

@@ -53,15 +53,7 @@ function StatusMsg({ status }) {
   if (!status) return null
   const ok = status.type === 'success'
   return (
-    <div
-      className={`flex items-center gap-2 text-sm px-3.5 py-2.5 rounded-xl mt-3 ${
-        ok ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
-      }`}
-      style={{
-        background: ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-        border: `1px solid ${ok ? 'rgba(16,185,129,0.22)' : 'rgba(239,68,68,0.22)'}`,
-      }}
-    >
+    <div className={`alert-glass mt-3 flex items-center gap-2 ${ok ? 'alert-success' : 'alert-error'}`}>
       {ok ? <Check size={14} /> : <AlertTriangle size={14} />}
       {status.msg}
     </div>

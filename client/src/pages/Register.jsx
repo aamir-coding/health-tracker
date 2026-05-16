@@ -74,13 +74,7 @@ export default function Register() {
         <div className="card p-7">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div
-                className="text-red-700 dark:text-red-300 text-sm px-4 py-3 rounded-xl"
-                style={{
-                  background: 'rgba(239,68,68,0.1)',
-                  border: '1px solid rgba(239,68,68,0.25)',
-                }}
-              >
+              <div className="alert-glass alert-error">
                 {error}
               </div>
             )}
