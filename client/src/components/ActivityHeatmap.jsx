@@ -68,12 +68,20 @@ export default function ActivityHeatmap() {
   const start = new Date(today)
   start.setDate(today.getDate() - 111)
 
+  // Format a Date to local YYYY-MM-DD (avoids UTC shifts from toISOString)
+  const formatLocalDateKey = (d) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${dd}`
+  }
+
   const weeks = []
   const cursor = new Date(start)
   for (let w = 0; w < 16; w++) {
     const week = []
     for (let d = 0; d < 7; d++) {
-      const dateStr = cursor.toISOString().slice(0, 10)
+      const dateStr = formatLocalDateKey(cursor)
       week.push({ date: new Date(cursor), dateStr, count: heatmap[dateStr] || 0, future: cursor > today })
       cursor.setDate(cursor.getDate() + 1)
     }
