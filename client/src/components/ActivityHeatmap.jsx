@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { logsApi } from '../api/healthApi'
+import { useSocket } from '../hooks/useSocket'
 
 const COLORS = [
   'bg-gray-100 dark:bg-gray-800',
@@ -24,6 +25,27 @@ export default function ActivityHeatmap() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // Real-time updates: incrementally update heatmap on new logs,
+  // and re-fetch on updates/deletes to keep counts accurate.
+  useSocket({
+    onLogNew: (log) => {
+      const key = new Date(log.date).toISOString().slice(0, 10)
+      setHeatmap(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }))
+    },
+    onLogUpdated: async () => {
+      try {
+        const { data } = await logsApi.getHeatmap()
+        setHeatmap(data.heatmap || {})
+      } catch (e) {}
+    },
+    onLogDeleted: async () => {
+      try {
+        const { data } = await logsApi.getHeatmap()
+        setHeatmap(data.heatmap || {})
+      } catch (e) {}
+    }
+  })
 
   const showTooltip = (day, tileEl) => {
     if (day.future || !tileEl) return
