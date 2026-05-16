@@ -66,7 +66,10 @@ export default function LogEntry() {
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }))
 
   const sanitise = (obj) => {
-    const out = { date: obj.date }
+    const out = { 
+      date: new Date(obj.date).toISOString(),
+      dateLocal: obj.date,
+    }
     for (const k of ['steps','sleepHours','waterMl','weight','mood']) {
       if (obj[k] !== '' && obj[k] !== null && obj[k] !== undefined) out[k] = Number(obj[k])
     }

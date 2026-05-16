@@ -11,6 +11,11 @@ const healthLogSchema = new mongoose.Schema({
     required: true,
     default: Date.now,
   },
+  dateLocal: {
+    type: String,
+    // Format: YYYY-MM-DD in user's local timezone (sent by client)
+    // Used for grouping logs by day in heatmap/streak (avoids UTC offset issues)
+  },
   weight: {
     type: Number,
     min: [1, 'Weight must be positive'],

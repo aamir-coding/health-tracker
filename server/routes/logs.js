@@ -62,12 +62,10 @@ router.get('/stats', async (req, res) => {
 
 router.get('/streak', async (req, res) => {
   try {
-    const logs = await HealthLog.find({ userId: req.userId }).select('date');
+    const logs = await HealthLog.find({ userId: req.userId }).select('dateLocal');
     if (!logs.length) return res.json({ streak: 0, longest: 0 });
 
-    const uniqueDates = [...new Set(
-      logs.map(l => new Date(l.date).toISOString().slice(0, 10))
-    )].sort((a, b) => b.localeCompare(a));
+    const uniqueDates = [...new Set(logs.map(l => l.dateLocal))].sort((a, b) => b.localeCompare(a));
 
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
@@ -104,16 +102,17 @@ router.get('/heatmap', async (req, res) => {
   try {
     const since = new Date();
     since.setDate(since.getDate() - 112);
-    // Count number of log entries per date (one per saved log)
+    // Count number of log entries per dateLocal (grouped by user's local date, not UTC)
     const logs = await HealthLog.find({
       userId: req.userId,
       date: { $gte: since },
-    }).select('date');
+    }).select('dateLocal');
 
     const map = {};
     logs.forEach(log => {
-      const key = new Date(log.date).toISOString().slice(0, 10);
-      map[key] = (map[key] || 0) + 1;
+      if (log.dateLocal) {
+        map[log.dateLocal] = (map[log.dateLocal] || 0) + 1;
+      }
     });
 
     res.json({ heatmap: map });

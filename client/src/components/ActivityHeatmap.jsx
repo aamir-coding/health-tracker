@@ -26,18 +26,18 @@ export default function ActivityHeatmap() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Real-time updates: incrementally update heatmap on new logs,
-  // and re-fetch on updates/deletes to keep counts accurate.
+  // Real-time updates: re-fetch on create/delete (affects counts),
+  // skip on update (most edits don't change date/heatmap)
   useSocket({
-    onLogNew: (log) => {
-      const key = new Date(log.date).toISOString().slice(0, 10)
-      setHeatmap(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }))
-    },
-    onLogUpdated: async () => {
+    onLogNew: async () => {
       try {
         const { data } = await logsApi.getHeatmap()
         setHeatmap(data.heatmap || {})
       } catch (e) {}
+    },
+    onLogUpdated: () => {
+      // Skip: most updates are to steps/mood/notes, not dates
+      // If user edits the date, heatmap will refresh on next natural fetch or delete
     },
     onLogDeleted: async () => {
       try {
