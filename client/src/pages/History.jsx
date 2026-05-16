@@ -34,6 +34,8 @@ export default function History() {
   const [pages, setPages]     = useState(1)
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [statusMsg, setStatusMsg] = useState('')
   const pageRef = useRef(page)
 
   useEffect(() => { pageRef.current = page }, [page])
@@ -57,11 +59,24 @@ export default function History() {
   useSocket({ onLogNew: refresh, onLogUpdated: refresh, onLogDeleted: refresh })
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this log? This cannot be undone.')) return
+    // show inline confirmation banner instead of native confirm
+    setConfirmDeleteId(id)
+  }
+
+  const confirmDelete = async () => {
+    const id = confirmDeleteId
+    if (!id) return
+    setConfirmDeleteId(null)
     setDeletingId(id)
-    try { await logsApi.delete(id); fetchLogs(page) }
-    catch { alert('Failed to delete. Please try again.') }
-    finally { setDeletingId(null) }
+    setStatusMsg('')
+    try {
+      await logsApi.delete(id)
+      fetchLogs(page)
+    } catch (err) {
+      setStatusMsg('Failed to delete. Please try again.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -76,6 +91,22 @@ export default function History() {
           <SquarePen size={15} />Add log
         </button>
       </div>
+
+      {statusMsg && (
+        <div className="alert-glass alert-error mb-4">
+          {statusMsg}
+        </div>
+      )}
+
+      {confirmDeleteId && (
+        <div className="alert-glass alert-error mb-4 flex items-center justify-between">
+          <div>Delete this log? This cannot be undone.</div>
+          <div className="flex gap-2">
+            <button onClick={confirmDelete} className="btn-danger text-xs py-1.5 px-3">Delete</button>
+            <button onClick={() => setConfirmDeleteId(null)} className="btn-secondary text-xs py-1.5 px-3">Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {!loading && logs.length === 0 && (

@@ -17,6 +17,11 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    // Client-side validations with specific messages
+    if (!form.email || form.email.trim() === '') { setError('Please enter your email address.'); return }
+    if (form.email.indexOf('@') === -1) { setError("Email must contain '@'."); return }
+    if (form.email.includes(',')) { setError('Email cannot contain commas.'); return }
+    if (!form.password || form.password.trim() === '') { setError('Please enter your password.'); return }
     setLoading(true)
     try {
       const { data } = await authApi.login(form)
@@ -80,7 +85,7 @@ export default function Login() {
                 className="input-field"
                 placeholder="you@example.com"
                 value={form.email}
-                onChange={e => set('email', e.target.value)}
+                onChange={e => { set('email', e.target.value); if (error) setError('') }}
                 autoComplete="email"
                 required
               />
@@ -94,7 +99,7 @@ export default function Login() {
                   className="input-field pr-10"
                   placeholder="••••••••"
                   value={form.password}
-                  onChange={e => set('password', e.target.value)}
+                  onChange={e => { set('password', e.target.value); if (error) setError('') }}
                   autoComplete="current-password"
                   required
                 />

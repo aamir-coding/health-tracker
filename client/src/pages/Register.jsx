@@ -22,6 +22,12 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    // Client-side validations with specific messages
+    if (!form.name || form.name.trim() === '') { setError('Please enter your full name.'); return }
+    if (form.name.includes(',')) { setError('Name cannot contain commas.'); return }
+    if (!form.email || form.email.trim() === '') { setError('Please enter your email address.'); return }
+    if (form.email.indexOf('@') === -1) { setError("Email must contain '@'."); return }
+    if (form.email.includes(',')) { setError('Email cannot contain commas.'); return }
     if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
     try {
@@ -86,7 +92,7 @@ export default function Register() {
                 className="input-field"
                 placeholder="Jane Smith"
                 value={form.name}
-                onChange={e => set('name', e.target.value)}
+                onChange={e => { set('name', e.target.value); if (error) setError('') }}
                 autoComplete="name"
                 required
               />
@@ -99,7 +105,7 @@ export default function Register() {
                 className="input-field"
                 placeholder="you@example.com"
                 value={form.email}
-                onChange={e => set('email', e.target.value)}
+                onChange={e => { set('email', e.target.value); if (error) setError('') }}
                 autoComplete="email"
                 required
               />
@@ -113,7 +119,7 @@ export default function Register() {
                   className="input-field pr-10"
                   placeholder="Min. 6 characters"
                   value={form.password}
-                  onChange={e => set('password', e.target.value)}
+                  onChange={e => { set('password', e.target.value); if (error) setError('') }}
                   autoComplete="new-password"
                   required
                 />

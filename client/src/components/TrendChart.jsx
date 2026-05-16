@@ -41,10 +41,14 @@ export default function TrendChart({ logs }) {
   const { dark } = useTheme()
   const metric = METRICS.find(m => m.key === selectedKey) || METRICS[0]
 
-  const data = (logs || []).map(log => ({
-    date: new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    value: log[metric.key] != null ? parseFloat(log[metric.key].toFixed(metric.decimals)) : null,
-  }))
+  // Ensure data is chronological: oldest -> newest (left -> right on chart)
+  const data = (logs || [])
+    .slice()
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .map(log => ({
+      date: new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      value: log[metric.key] != null ? parseFloat(log[metric.key].toFixed(metric.decimals)) : null,
+    }))
 
   const hasData = data.some(d => d.value != null)
   const gridColor  = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'
