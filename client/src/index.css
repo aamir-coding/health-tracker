@@ -106,6 +106,41 @@
   .label {
     @apply block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300;
   }
+
+  /* ── Alert (liquid glass) ───────────────────────── */
+  .alert-glass {
+    @apply text-sm px-4 py-3 rounded-xl;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .alert-glass.alert-error {
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.16);
+    color: #7f1d1d;
+  }
+  .alert-glass.alert-success {
+    background: rgba(16,185,129,0.06);
+    border: 1px solid rgba(16,185,129,0.14);
+    color: #065f46;
+  }
+  .dark .alert-glass {
+    background: rgba(12,7,32,0.6);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .dark .alert-glass.alert-error {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.12);
+    color: #fecaca;
+  }
+  .dark .alert-glass.alert-success {
+    background: rgba(16,185,129,0.06);
+    border: 1px solid rgba(16,185,129,0.08);
+    color: #bbf7d0;
+  }
 }
 
 /* ── Dark mode (outside layer for correct cascade) ── */
@@ -274,37 +309,3 @@
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* ── Alert (liquid glass) ───────────────────────── */
-.alert-glass {
-  @apply text-sm px-4 py-3 rounded-xl;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.7);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
-}
-.alert-glass.alert-error {
-  background: rgba(239,68,68,0.06);
-  border: 1px solid rgba(239,68,68,0.16);
-  color: #7f1d1d;
-}
-.alert-glass.alert-success {
-  background: rgba(16,185,129,0.06);
-  border: 1px solid rgba(16,185,129,0.14);
-  color: #065f46;
-}
-.dark .alert-glass {
-  background: rgba(12,7,32,0.6);
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
-}
-.dark .alert-glass.alert-error {
-  background: rgba(239,68,68,0.08);
-  border: 1px solid rgba(239,68,68,0.12);
-  color: #fecaca;
-}
-.dark .alert-glass.alert-success {
-  background: rgba(16,185,129,0.06);
-  border: 1px solid rgba(16,185,129,0.08);
-  color: #bbf7d0;
-}
