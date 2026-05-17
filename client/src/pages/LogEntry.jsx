@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  ChevronLeft, Check,
+  ChevronLeft, Check, CloudOff,
   CalendarDays, Footprints, Moon, Droplets, Scale, FileText,
   Frown, Meh, Smile, SmilePlus, Laugh,
 } from 'lucide-react'
-import { logsApi } from '../api/healthApi'
-import GlowIcon from '../components/GlowIcon'
-import Layout from '../components/Layout'
+import { logsApi }           from '../api/healthApi'
+import { useOfflineQueue }   from '../hooks/useOfflineQueue'
+import GlowIcon              from '../components/GlowIcon'
+import Layout                from '../components/Layout'
 
 const MOODS = [
   { value:1, icon:Frown,    color:'red',    label:'Very bad' },
@@ -17,6 +18,7 @@ const MOODS = [
   { value:5, icon:Laugh,    color:'violet', label:'Great'    },
 ]
 
+// Timezone-safe: uses local date parts rather than toISOString() which returns UTC
 const today = () => {
   const d = new Date()
   const yyyy = d.getFullYear()
@@ -41,45 +43,51 @@ export default function LogEntry() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const existing  = location.state?.log
+  const { enqueue } = useOfflineQueue()
 
   const [form, setForm] = useState({
-    date: today(), steps:'', sleepHours:'', waterMl:'', weight:'', mood:null, notes:'',
+    date:'', steps:'', sleepHours:'', waterMl:'', weight:'', mood:null, notes:'',
   })
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error,   setError]   = useState('')
+  const [loading,      setLoading]      = useState(false)
+  const [success,      setSuccess]      = useState(false)
+  const [offlineSaved, setOfflineSaved] = useState(false)
+  const [error,        setError]        = useState('')
 
-  const isWholeNumber = (value) => value === '' || /^\d+$/.test(value)
-  const isDecimalOnePlace = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
-  const isSleepValid = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
-  const isWaterValid = (value) => value === '' || /^\d+$/.test(value)
-  const withinRange = (value, min, max) => value === '' || (Number(value) >= min && Number(value) <= max)
-
+  // Cleaner init: always sets form, handles both edit and create in one place
   useEffect(() => {
-    if (existing) {
-      setForm({
-        date:       existing.date?.slice(0, 10) || today(),
-        steps:      existing.steps       ?? '',
-        sleepHours: existing.sleepHours  ?? '',
-        waterMl:    existing.waterMl     ?? '',
-        weight:     existing.weight      ?? '',
-        mood:       existing.mood        ?? null,
-        notes:      existing.notes       ?? '',
-      })
-    }
+    setForm(existing
+      ? {
+          date:       existing.date?.slice(0, 10) || today(),
+          steps:      existing.steps       ?? '',
+          sleepHours: existing.sleepHours  ?? '',
+          waterMl:    existing.waterMl     ?? '',
+          weight:     existing.weight      ?? '',
+          mood:       existing.mood        ?? null,
+          notes:      existing.notes       ?? '',
+        }
+      : { date:today(), steps:'', sleepHours:'', waterMl:'', weight:'', mood:null, notes:'' }
+    )
   }, [])
 
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }))
 
+  // Validation helpers (kept from original — more robust than relying on input type="number")
+  const isWholeNumber       = (value) => value === '' || /^\d+$/.test(value)
+  const isDecimalOnePlace   = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
+  const isSleepValid        = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
+  const isWaterValid        = (value) => value === '' || /^\d+$/.test(value)
+  const withinRange         = (value, min, max) => value === '' || (Number(value) >= min && Number(value) <= max)
+
+  // Preserves dateLocal alongside ISO string — backend may rely on both
   const sanitise = (obj) => {
-    const out = { 
-      date: new Date(obj.date).toISOString(),
+    const out = {
+      date:      new Date(obj.date).toISOString(),
       dateLocal: obj.date,
     }
     for (const k of ['steps','sleepHours','waterMl','weight','mood']) {
       if (obj[k] !== '' && obj[k] !== null && obj[k] !== undefined) out[k] = Number(obj[k])
     }
-    if (obj.notes.trim()) out.notes = obj.notes.trim()
+    if (obj.notes?.trim()) out.notes = obj.notes.trim()
     return out
   }
 
@@ -87,8 +95,9 @@ export default function LogEntry() {
     e.preventDefault()
     setError('')
 
+    // Client-side validation (original behaviour preserved)
     if (!isWholeNumber(form.steps) || !withinRange(form.steps, 0, 100000)) {
-      setError('Steps must be a whole number between 0 and 100000.')
+      setError('Steps must be a whole number between 0 and 100,000.')
       return
     }
     if (!isDecimalOnePlace(form.weight) || !withinRange(form.weight, 1, 500)) {
@@ -100,18 +109,36 @@ export default function LogEntry() {
       return
     }
     if (!isWaterValid(form.waterMl) || !withinRange(form.waterMl, 0, 20000)) {
-      setError('Water must be a whole number between 0 and 20000.')
+      setError('Water must be a whole number between 0 and 20,000.')
       return
     }
 
     setLoading(true)
+    const payload = sanitise(form)
+
+    // Offline path — enqueue and return early
+    if (!navigator.onLine) {
+      enqueue(payload, existing ? 'update' : 'create', existing?._id)
+      setOfflineSaved(true)
+      setLoading(false)
+      setTimeout(() => navigate('/'), 1600)
+      return
+    }
+
     try {
-      const payload = sanitise(form)
       if (existing) await logsApi.update(existing._id, payload)
       else          await logsApi.create(payload)
       setSuccess(true)
       setTimeout(() => navigate('/'), 1400)
     } catch (err) {
+      // Treat a network failure (even when onLine was true) as an offline event
+      if (err.code === 'ERR_NETWORK' || err.message?.includes('Network')) {
+        enqueue(payload, existing ? 'update' : 'create', existing?._id)
+        setOfflineSaved(true)
+        setLoading(false)
+        setTimeout(() => navigate('/'), 1600)
+        return
+      }
       setError(
         err.response?.data?.errors?.[0]?.msg ||
         err.response?.data?.error ||
@@ -157,6 +184,17 @@ export default function LogEntry() {
                 <Check size={15} />Saved! Taking you to the dashboard…
               </div>
             )}
+            {offlineSaved && (
+              <div
+                className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl"
+                style={{ background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.22)' }}
+              >
+                <CloudOff size={15} className="text-amber-500 flex-shrink-0" />
+                <span className="text-amber-700 dark:text-amber-300">
+                  Saved offline — will sync automatically when you're back online
+                </span>
+              </div>
+            )}
 
             {/* Date */}
             <div>
@@ -175,11 +213,13 @@ export default function LogEntry() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <IconLabel icon={Footprints} color="indigo" hint="0–100,000">Steps</IconLabel>
-                <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 7500" value={form.steps} onChange={e => set('steps', e.target.value)} />
+                <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 7500"
+                  value={form.steps} onChange={e => set('steps', e.target.value)} />
               </div>
               <div>
                 <IconLabel icon={Moon} color="purple" hint="hours">Sleep</IconLabel>
-                <input type="text" inputMode="decimal" className="input-field" placeholder="e.g. 7.1" value={form.sleepHours} onChange={e => set('sleepHours', e.target.value)} />
+                <input type="text" inputMode="decimal" className="input-field" placeholder="e.g. 7.1"
+                  value={form.sleepHours} onChange={e => set('sleepHours', e.target.value)} />
               </div>
             </div>
 
@@ -187,11 +227,13 @@ export default function LogEntry() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <IconLabel icon={Droplets} color="cyan" hint="ml">Water</IconLabel>
-                <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 2130" value={form.waterMl} onChange={e => set('waterMl', e.target.value)} />
+                <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 2130"
+                  value={form.waterMl} onChange={e => set('waterMl', e.target.value)} />
               </div>
               <div>
                 <IconLabel icon={Scale} color="amber" hint="kg">Weight</IconLabel>
-                <input type="text" inputMode="decimal" className="input-field" placeholder="e.g. 68.5" value={form.weight} onChange={e => set('weight', e.target.value)} />
+                <input type="text" inputMode="decimal" className="input-field" placeholder="e.g. 68.5"
+                  value={form.weight} onChange={e => set('weight', e.target.value)} />
               </div>
             </div>
 
@@ -242,10 +284,19 @@ export default function LogEntry() {
 
             {/* Actions */}
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => navigate(-1)} className="btn-secondary flex-1" disabled={loading || success}>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="btn-secondary flex-1"
+                disabled={loading || success || offlineSaved}
+              >
                 Cancel
               </button>
-              <button type="submit" disabled={loading || success} className="btn-primary flex-1">
+              <button
+                type="submit"
+                disabled={loading || success || offlineSaved}
+                className="btn-primary flex-1"
+              >
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

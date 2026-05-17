@@ -13,6 +13,7 @@ import { useTheme } from '../context/ThemeContext'
 import { authApi, logsApi } from '../api/healthApi'
 import GlowIcon, { MoodIcon } from '../components/GlowIcon'
 import Layout from '../components/Layout'
+import NotificationSettings from '../components/NotificationSettings'
 
 const SECTIONS = [
   { id:'profile',     label:'Profile',     icon:User             },
@@ -550,6 +551,7 @@ function PreferencesSection({ user, updateUser }) {
           ))}
         </div>
       </GlassCard>
+      <NotificationSettings />
     </div>
   )
 }
