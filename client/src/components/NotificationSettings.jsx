@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Clock, Check, X, AlertTriangle } from 'lucide-react'
+import { Bell, Clock, Check, AlertTriangle, Play } from 'lucide-react'
 import GlowIcon from './GlowIcon'
 
 const TIME_KEY    = 'ht_reminder_time'
@@ -11,6 +11,33 @@ async function requestPermission() {
   return Notification.requestPermission()
 }
 
+function sendTestNotification() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+
+  const payload = {
+    type:  'SHOW_NOTIFICATION',
+    title: 'HealthTrack — test notification ✓',
+    body:  'Notifications are working correctly!',
+    url:   '/log',
+  }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready
+      .then(reg => {
+        if (reg.active) {
+          reg.active.postMessage(payload)
+        } else {
+          new Notification(payload.title, { body: payload.body, icon: '/pwa-192x192.png' })
+        }
+      })
+      .catch(() => {
+        new Notification(payload.title, { body: payload.body, icon: '/pwa-192x192.png' })
+      })
+  } else {
+    new Notification(payload.title, { body: payload.body, icon: '/pwa-192x192.png' })
+  }
+}
+
 export default function NotificationSettings() {
   const [permission, setPermission] = useState(
     () => ('Notification' in window ? Notification.permission : 'unsupported')
@@ -18,10 +45,9 @@ export default function NotificationSettings() {
   const [enabled, setEnabled] = useState(
     () => localStorage.getItem(ENABLED_KEY) === 'true'
   )
-  const [time, setTime] = useState(
-    () => localStorage.getItem(TIME_KEY) || '09:00'
-  )
+  const [time,  setTime]  = useState(() => localStorage.getItem(TIME_KEY) || '09:00')
   const [saved, setSaved] = useState(false)
+  const [testSent, setTestSent] = useState(false)
 
   const save = (nextEnabled, nextTime) => {
     localStorage.setItem(ENABLED_KEY, String(nextEnabled))
@@ -41,11 +67,18 @@ export default function NotificationSettings() {
     save(next, time)
   }
 
+  const handleTest = () => {
+    sendTestNotification()
+    setTestSent(true)
+    setTimeout(() => setTestSent(false), 3000)
+  }
+
   const unsupported = permission === 'unsupported'
   const denied      = permission === 'denied'
 
   return (
     <div className="card p-5">
+      {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <GlowIcon icon={Bell} color="violet" size="md" />
@@ -55,7 +88,7 @@ export default function NotificationSettings() {
             </h3>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               {unsupported && 'Notifications are not supported in this browser'}
-              {denied      && 'Notifications are blocked — update your browser settings'}
+              {denied      && 'Notifications are blocked — update browser settings'}
               {!unsupported && !denied && 'Get a push reminder to log your health data each day'}
             </p>
           </div>
@@ -88,39 +121,68 @@ export default function NotificationSettings() {
 
       {/* Denied warning */}
       {denied && (
-        <div className="mt-3 flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400 px-3 py-2.5 rounded-xl"
-          style={{ background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.22)' }}>
-          <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
-          Open your browser's Site Settings and allow notifications for this site, then reload.
+        <div
+          className="mt-3 flex items-start gap-2 text-xs px-3 py-2.5 rounded-xl"
+          style={{
+            background: 'rgba(245,158,11,0.1)',
+            border: '1px solid rgba(245,158,11,0.22)',
+            color: '#92400e',
+          }}
+        >
+          <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
+          <span className="dark:text-amber-300">
+            Open your browser's Site Settings and allow notifications for this site, then reload.
+          </span>
         </div>
       )}
 
-      {/* Time picker */}
+      {/* Time picker + test button */}
       {enabled && permission === 'granted' && (
-        <div className="mt-4 pt-4 flex items-center gap-3"
-          style={{ borderTop:'1px solid rgba(255,255,255,0.1)' }}>
-          <Clock size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
-          <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-            Remind me at
-          </label>
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            className="input-field text-sm flex-1 py-1.5"
-          />
-          <button
-            onClick={() => save(enabled, time)}
-            className="btn-primary text-xs py-1.5 px-3 gap-1 flex-shrink-0"
-          >
-            {saved
-              ? <><Check size={12} /> Saved</>
-              : 'Save'
-            }
-          </button>
+        <div
+          className="mt-4 pt-4 space-y-3"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          {/* Time row */}
+          <div className="flex items-center gap-3">
+            <Clock size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+            <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+              Remind me at
+            </label>
+            <input
+              type="time"
+              value={time}
+              onChange={e => setTime(e.target.value)}
+              className="input-field text-sm flex-1 py-1.5"
+            />
+            <button
+              onClick={() => save(enabled, time)}
+              className="btn-primary text-xs py-1.5 px-3 gap-1 flex-shrink-0"
+            >
+              {saved ? <><Check size={12} /> Saved</> : 'Save'}
+            </button>
+          </div>
+
+          {/* Test button */}
+          <div className="flex items-center gap-3">
+            <div className="w-3.5 flex-shrink-0" />
+            <button
+              onClick={handleTest}
+              disabled={testSent}
+              className="btn-secondary text-xs py-1.5 px-3 gap-1.5 disabled:opacity-60"
+            >
+              {testSent
+                ? <><Check size={12} className="text-green-500" /> Notification sent!</>
+                : <><Play size={12} /> Send test notification</>
+              }
+            </button>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Fires immediately to verify setup
+            </p>
+          </div>
         </div>
       )}
 
+      {/* Not enabled hint */}
       {!unsupported && !denied && !enabled && (
         <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
           Toggle on above — your browser will ask for notification permission.

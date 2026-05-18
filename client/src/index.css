@@ -82,7 +82,8 @@
     border-color: rgba(99, 102, 241, 0.5);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), inset 0 1px 3px rgba(0,0,0,0.03);
   }
-  .input-field:disabled, .input-field[readonly] {
+  .input-field:disabled,
+  .input-field[readonly] {
     opacity: 0.6;
     cursor: not-allowed;
   }
@@ -107,43 +108,53 @@
     @apply block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300;
   }
 
-  /* ── Alert (liquid glass) ───────────────────────── */
+  /* ── Glass alerts ────────────────────────────── */
   .alert-glass {
-    @apply text-sm px-4 py-3 rounded-xl;
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(12px) saturate(160%);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
-    border: 1px solid rgba(255,255,255,0.7);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+    @apply flex items-start gap-2.5 text-sm px-4 py-3 rounded-xl;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-top: 1px solid rgba(255,255,255,0.55);
+    border-left: 1px solid rgba(255,255,255,0.38);
+    animation: alertSlideIn 0.18s ease-out;
   }
-  .alert-glass.alert-error {
-    background: rgba(239,68,68,0.06);
-    border: 1px solid rgba(239,68,68,0.16);
-    color: #7f1d1d;
+  .alert-error {
+    background: rgba(239, 68, 68, 0.11);
+    border: 1px solid rgba(239, 68, 68, 0.26);
+    border-top: 1px solid rgba(255,255,255,0.4);
+    border-left: 1px solid rgba(255,255,255,0.25);
+    color: #b91c1c;
+    box-shadow:
+      0 0 14px rgba(239,68,68,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.35);
   }
-  .alert-glass.alert-success {
-    background: rgba(16,185,129,0.06);
-    border: 1px solid rgba(16,185,129,0.14);
+  .alert-success {
+    background: rgba(16, 185, 129, 0.11);
+    border: 1px solid rgba(16, 185, 129, 0.26);
+    border-top: 1px solid rgba(255,255,255,0.4);
+    border-left: 1px solid rgba(255,255,255,0.25);
     color: #065f46;
+    box-shadow:
+      0 0 14px rgba(16,185,129,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.35);
   }
-  .dark .alert-glass {
-    background: rgba(12,7,32,0.6);
-    border: 1px solid rgba(255,255,255,0.06);
-    box-shadow: 0 8px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+  .alert-warning {
+    background: rgba(245, 158, 11, 0.11);
+    border: 1px solid rgba(245, 158, 11, 0.26);
+    border-top: 1px solid rgba(255,255,255,0.4);
+    border-left: 1px solid rgba(255,255,255,0.25);
+    color: #92400e;
+    box-shadow:
+      0 0 14px rgba(245,158,11,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.35);
   }
-  .dark .alert-glass.alert-error {
-    background: rgba(239,68,68,0.08);
-    border: 1px solid rgba(239,68,68,0.12);
-    color: #fecaca;
-  }
-  .dark .alert-glass.alert-success {
-    background: rgba(16,185,129,0.06);
-    border: 1px solid rgba(16,185,129,0.08);
-    color: #bbf7d0;
+
+  @keyframes alertSlideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 }
 
-/* ── Dark mode (outside layer for correct cascade) ── */
+/* ── Dark mode ───────────────────────────────── */
 .dark .btn-secondary {
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.11);
@@ -175,6 +186,22 @@
     0 4px 32px rgba(0, 0, 0, 0.45),
     0 1px 4px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.dark .alert-error {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.32);
+  color: #fca5a5;
+}
+.dark .alert-success {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.32);
+  color: #6ee7b7;
+}
+.dark .alert-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.32);
+  color: #fcd34d;
 }
 
 /* ── Mesh background ─────────────────────────── */
@@ -209,68 +236,58 @@
   background: radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%);
   animation: orbFloat1 28s ease-in-out infinite;
 }
-.dark .orb-1 {
-  background: radial-gradient(circle, rgba(99,102,241,0.58) 0%, transparent 70%);
-}
+.dark .orb-1 { background: radial-gradient(circle, rgba(99,102,241,0.58) 0%, transparent 70%); }
 .orb-2 {
   width: 620px; height: 620px;
   top: -18%; right: -10%;
   background: radial-gradient(circle, rgba(14,165,233,0.17) 0%, transparent 70%);
   animation: orbFloat2 34s ease-in-out infinite;
 }
-.dark .orb-2 {
-  background: radial-gradient(circle, rgba(14,165,233,0.48) 0%, transparent 70%);
-}
+.dark .orb-2 { background: radial-gradient(circle, rgba(14,165,233,0.48) 0%, transparent 70%); }
 .orb-3 {
   width: 560px; height: 560px;
   bottom: -12%; left: 14%;
   background: radial-gradient(circle, rgba(139,92,246,0.19) 0%, transparent 70%);
   animation: orbFloat3 22s ease-in-out infinite;
 }
-.dark .orb-3 {
-  background: radial-gradient(circle, rgba(139,92,246,0.52) 0%, transparent 70%);
-}
+.dark .orb-3 { background: radial-gradient(circle, rgba(139,92,246,0.52) 0%, transparent 70%); }
 .orb-4 {
   width: 420px; height: 420px;
   bottom: 4%; right: 6%;
   background: radial-gradient(circle, rgba(20,184,166,0.15) 0%, transparent 70%);
   animation: orbFloat4 26s ease-in-out infinite;
 }
-.dark .orb-4 {
-  background: radial-gradient(circle, rgba(20,184,166,0.4) 0%, transparent 70%);
-}
+.dark .orb-4 { background: radial-gradient(circle, rgba(20,184,166,0.4) 0%, transparent 70%); }
 .orb-5 {
   width: 340px; height: 340px;
   top: 38%; left: 42%;
   background: radial-gradient(circle, rgba(236,72,153,0.1) 0%, transparent 70%);
   animation: orbFloat5 19s ease-in-out infinite;
 }
-.dark .orb-5 {
-  background: radial-gradient(circle, rgba(236,72,153,0.3) 0%, transparent 70%);
-}
+.dark .orb-5 { background: radial-gradient(circle, rgba(236,72,153,0.3) 0%, transparent 70%); }
 
 @keyframes orbFloat1 {
   0%,100% { transform: translate(0,0) scale(1); }
-  33%      { transform: translate(90px,70px) scale(1.08); }
-  66%      { transform: translate(-50px,110px) scale(0.93); }
+  33%     { transform: translate(90px,70px) scale(1.08); }
+  66%     { transform: translate(-50px,110px) scale(0.93); }
 }
 @keyframes orbFloat2 {
   0%,100% { transform: translate(0,0) scale(1); }
-  33%      { transform: translate(-110px,85px) scale(1.06); }
-  66%      { transform: translate(70px,-45px) scale(1.1); }
+  33%     { transform: translate(-110px,85px) scale(1.06); }
+  66%     { transform: translate(70px,-45px) scale(1.1); }
 }
 @keyframes orbFloat3 {
   0%,100% { transform: translate(0,0) scale(1); }
-  50%      { transform: translate(90px,-70px) scale(1.12); }
+  50%     { transform: translate(90px,-70px) scale(1.12); }
 }
 @keyframes orbFloat4 {
   0%,100% { transform: translate(0,0); }
-  40%      { transform: translate(-90px,-55px) scale(1.07); }
-  80%      { transform: translate(50px,70px) scale(0.93); }
+  40%     { transform: translate(-90px,-55px) scale(1.07); }
+  80%     { transform: translate(50px,70px) scale(0.93); }
 }
 @keyframes orbFloat5 {
   0%,100% { transform: translate(0,0) scale(1); }
-  50%      { transform: translate(-70px,90px) scale(1.16); }
+  50%     { transform: translate(-70px,90px) scale(1.16); }
 }
 
 /* ── Glass sidebar / header ──────────────────── */
@@ -308,4 +325,3 @@
 ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.45); }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-
