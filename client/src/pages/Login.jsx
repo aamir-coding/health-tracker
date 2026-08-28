@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Heart } from 'lucide-react'
+import { Eye, EyeOff, Heart, LogIn } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { authApi } from '../api/healthApi'
+
+const DEMO_CREDENTIALS = {
+  email: 'demo@healthtracker.com',
+  password: '123demo456',
+}
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
@@ -14,17 +19,11 @@ export default function Login() {
 
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }))
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleLogin = async (credentials) => {
     setError('')
-    // Client-side validations with specific messages
-    if (!form.email || form.email.trim() === '') { setError('Please enter your email address.'); return }
-    if (form.email.indexOf('@') === -1) { setError("Email must contain '@'."); return }
-    if (form.email.includes(',')) { setError('Email cannot contain commas.'); return }
-    if (!form.password || form.password.trim() === '') { setError('Please enter your password.'); return }
     setLoading(true)
     try {
-      const { data } = await authApi.login(form)
+      const { data } = await authApi.login(credentials)
       signIn(data.token, data.user)
       navigate('/')
     } catch (err) {
@@ -36,6 +35,17 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    // Client-side validations with specific messages
+    if (!form.email || form.email.trim() === '') { setError('Please enter your email address.'); return }
+    if (form.email.indexOf('@') === -1) { setError("Email must contain '@'."); return }
+    if (form.email.includes(',')) { setError('Email cannot contain commas.'); return }
+    if (!form.password || form.password.trim() === '') { setError('Please enter your password.'); return }
+    await handleLogin(form)
   }
 
   return (
@@ -134,9 +144,9 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Demo hint */}
+        {/* Demo access */}
         <div
-          className="mt-3 px-4 py-3 rounded-2xl text-xs text-gray-500 dark:text-gray-400 text-center"
+          className="mt-3 px-5 py-4 rounded-2xl text-sm text-gray-500 dark:text-gray-400"
           style={{
             background: 'rgba(255,255,255,0.38)',
             backdropFilter: 'blur(12px)',
@@ -144,8 +154,31 @@ export default function Login() {
             border: '1px solid rgba(255,255,255,0.5)',
           }}
         >
-          <span className="font-semibold text-gray-700 dark:text-gray-300">Demo — </span>
-          demo@healthtracker.com · demo123456
+          <div className="text-center">
+            <p className="font-semibold text-gray-700 dark:text-gray-300">Demo access</p>
+            <p className="text-xs mt-1">Explore the pre-populated app without registering.</p>
+          </div>
+          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 mt-3 text-xs">
+            <span className="text-gray-400 dark:text-gray-500">Email</span>
+            <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{DEMO_CREDENTIALS.email}</span>
+            <span className="text-gray-400 dark:text-gray-500">Password</span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">{DEMO_CREDENTIALS.password}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleLogin(DEMO_CREDENTIALS)}
+            disabled={loading}
+            className="btn-primary w-full py-2.5 mt-4 gap-2"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Signing in…
+              </span>
+            ) : (
+              <><LogIn size={15} />Continue with demo account</>
+            )}
+          </button>
         </div>
       </div>
     </div>
