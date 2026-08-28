@@ -26,6 +26,20 @@ const greeting = () => {
 const todayLabel = () =>
   new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })
 
+const todayLocal = () => {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+const formatLogDate = (log) => {
+  if (!log) return null
+  const date = log.dateLocal ? new Date(`${log.dateLocal}T00:00:00`) : new Date(log.date)
+  return date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
+}
+
 function computeHealthScore(avg) {
   let score = 0, max = 0
   if (avg.steps != null)      { score += Math.min(avg.steps / 10000, 1) * 25; max += 25 }
@@ -60,10 +74,10 @@ const GOAL_ITEMS = [
   { key:'mood',       label:'Mood',   icon:Smile,      color:'green',  fmt:(v)=>`${v}/5`,            glowCls:'bg-green-500'  },
 ]
 
-function GoalsProgress({ goals, latest }) {
+function GoalsProgress({ goals, todayLog }) {
   const items = GOAL_ITEMS.map(m => ({
     ...m,
-    actual: latest?.[m.key === 'mood' ? 'mood' : m.key],
+    actual: todayLog ? todayLog[m.key === 'mood' ? 'mood' : m.key] : 0,
     target: m.key === 'mood' ? goals?.targetMood : goals?.[`daily${m.key.charAt(0).toUpperCase() + m.key.slice(1)}`],
   })).filter(i => i.target != null)
 
@@ -170,6 +184,8 @@ export default function Dashboard() {
   const units   = user?.preferences?.units || 'metric'
   const latest  = stats?.latest
   const avg     = stats?.averages || {}
+  const todayLog = recentLogs.find(log => log.dateLocal === todayLocal())
+  const latestDateLabel = formatLogDate(latest)
 
   const bmi = user?.height && latest?.weight
     ? (latest.weight / Math.pow(user.height / 100, 2)).toFixed(1) : null
@@ -261,13 +277,21 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Metric cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {metricCards.map(m => <MetricCard key={m.label} {...m} />)}
+          {/* Latest entry metrics */}
+          <div>
+            <div className="flex items-baseline justify-between gap-3 mb-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Latest entry</h2>
+              {latestDateLabel && (
+                <span className="text-xs text-gray-400 dark:text-gray-500">{latestDateLabel}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {metricCards.map(m => <MetricCard key={m.label} {...m} />)}
+            </div>
           </div>
 
           {/* Goals */}
-          <GoalsProgress goals={user?.goals} latest={latest} />
+          <GoalsProgress goals={user?.goals} todayLog={todayLog} />
 
           {/* BMI + Health score */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
