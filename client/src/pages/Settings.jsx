@@ -717,7 +717,7 @@ function AboutSection() {
     { label:'Backend',  items:'Node.js, Express.js, Socket.io'              },
     { label:'Database', items:'MongoDB Atlas, Mongoose'                     },
     { label:'Auth',     items:'JWT, bcrypt'                                 },
-    { label:'AI',       items:'Groq (LLaMA 3 8B)'                          },
+    { label:'AI',       items:'Groq (GPT-OSS-20B)'                          },
     { label:'DevOps',   items:'Docker, GitHub Actions, Render, Vercel'      },
   ]
 
