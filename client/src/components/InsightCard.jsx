@@ -30,7 +30,7 @@ export default function InsightCard() {
           <GlowIcon icon={Sparkles} color="violet" size="md" />
           <div>
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI weekly insight</h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500">Powered by Groq · OpenAI's GPT-OSS (20B)</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">Powered by Groq · OpenAI's GPT-OSS (20B)</p>
           </div>
         </div>
         {loaded && (
@@ -67,7 +67,7 @@ export default function InsightCard() {
               style={{ width: `${w}%`, background: 'rgba(139,92,246,0.12)' }}
             />
           ))}
-          <p className="text-xs text-violet-400 dark:text-violet-500 text-center mt-3">Analysing your week…</p>
+          <p className="text-sm text-violet-400 dark:text-violet-500 text-center mt-3">Analysing your week…</p>
         </div>
       )}
 

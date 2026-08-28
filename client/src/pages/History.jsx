@@ -5,12 +5,14 @@ import {
   ClipboardList,
 } from 'lucide-react'
 import { logsApi } from '../api/healthApi'
+import { useAuth } from '../context/AuthContext'
+import { convertWater, convertWeight, waterUnit, weightUnit } from '../utils/units'
 import { useSocket } from '../hooks/useSocket'
 import { MoodIcon } from '../components/GlowIcon'
 import GlowIcon from '../components/GlowIcon'
 import Layout from '../components/Layout'
 
-const fmtDate = d => new Date(d).toLocaleDateString('en-US', {
+const fmtDate = (d, dateLocal) => new Date(dateLocal ? `${dateLocal}T00:00:00` : d).toLocaleDateString('en-US', {
   day:'numeric', month:'short', year:'numeric',
 })
 
@@ -27,6 +29,8 @@ function RowSkeleton() {
 }
 
 export default function History() {
+  const { user } = useAuth()
+  const units = user?.preferences?.units || 'metric'
   const navigate  = useNavigate()
   const [logs, setLogs]       = useState([])
   const [total, setTotal]     = useState(0)
@@ -85,10 +89,10 @@ export default function History() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">History</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500">{total} log{total !== 1 ? 's' : ''} total</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">{total} day{total !== 1 ? 's' : ''} recorded</p>
         </div>
-        <button onClick={() => navigate('/log')} className="btn-primary gap-2">
-          <SquarePen size={15} />Add log
+          <button onClick={() => navigate('/log')} className="btn-primary gap-2">
+          <SquarePen size={15} />Today's log
         </button>
       </div>
 
@@ -116,7 +120,7 @@ export default function History() {
           </div>
           <p className="font-semibold text-gray-700 dark:text-gray-300">No logs yet</p>
           <p className="text-gray-400 dark:text-gray-500 text-sm mt-1 mb-4">
-            Your health log entries will appear here
+            Your daily health records will appear here
           </p>
           <button onClick={() => navigate('/log')} className="btn-primary gap-2">
             <SquarePen size={15} />Log now
@@ -153,7 +157,7 @@ export default function History() {
                     style={i < logs.length - 1 ? { borderBottom:'1px solid rgba(255,255,255,0.08)' } : {}}
                   >
                     <td className="px-4 py-3.5 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
-                      {fmtDate(log.date)}
+                      {fmtDate(log.date, log.dateLocal)}
                     </td>
                     <td className="px-4 py-3.5 text-right tabular-nums">
                       {log.steps != null
@@ -167,12 +171,12 @@ export default function History() {
                     </td>
                     <td className="px-4 py-3.5 text-right tabular-nums">
                       {log.waterMl != null
-                        ? <span className="text-gray-700 dark:text-gray-300">{log.waterMl}ml</span>
+                        ? <span className="text-gray-700 dark:text-gray-300">{convertWater(log.waterMl, units)}{waterUnit(units)}</span>
                         : <span className="text-gray-300 dark:text-gray-600">—</span>}
                     </td>
                     <td className="px-4 py-3.5 text-right tabular-nums">
                       {log.weight != null
-                        ? <span className="text-gray-700 dark:text-gray-300">{log.weight}kg</span>
+                        ? <span className="text-gray-700 dark:text-gray-300">{convertWeight(log.weight, units)}{weightUnit(units)}</span>
                         : <span className="text-gray-300 dark:text-gray-600">—</span>}
                     </td>
                     <td className="px-4 py-3.5">
@@ -221,7 +225,7 @@ export default function History() {
             <div key={log._id} className="card p-4">
               <div className="flex items-start justify-between mb-3">
                 <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                  {fmtDate(log.date)}
+                  {fmtDate(log.date, log.dateLocal)}
                 </span>
                 <div className="flex gap-1">
                   <button
@@ -246,8 +250,8 @@ export default function History() {
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-gray-400">
                 {log.steps      != null && <span className="tabular-nums">{log.steps.toLocaleString()} steps</span>}
                 {log.sleepHours != null && <span className="tabular-nums">{log.sleepHours}h sleep</span>}
-                {log.waterMl    != null && <span className="tabular-nums">{log.waterMl}ml water</span>}
-                {log.weight     != null && <span className="tabular-nums">{log.weight}kg</span>}
+                {log.waterMl    != null && <span className="tabular-nums">{convertWater(log.waterMl, units)}{waterUnit(units)} water</span>}
+                {log.weight     != null && <span className="tabular-nums">{convertWeight(log.weight, units)}{weightUnit(units)}</span>}
                 {log.mood       != null && (
                   <span className="flex items-center gap-1.5">
                     <MoodIcon mood={log.mood} size="xs" />
@@ -255,10 +259,10 @@ export default function History() {
                   </span>
                 )}
               </div>
-              {log.notes && (
+              {log.notes?.length > 0 && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 italic pt-2"
                    style={{ borderTop:'1px solid rgba(255,255,255,0.12)' }}>
-                  "{log.notes}"
+                  "{Array.isArray(log.notes) ? log.notes.join(' ') : log.notes}"
                 </p>
               )}
             </div>

@@ -33,6 +33,7 @@ export function useOfflineQueue({ onSync } = {}) {
         if      (item.type === 'create') await logsApi.create(item.payload)
         else if (item.type === 'update') await logsApi.update(item.logId, item.payload)
         else if (item.type === 'delete') await logsApi.delete(item.logId)
+        else if (item.type === 'increment') await logsApi.increment(item.payload.field, item.payload.amount, item.payload.dateLocal)
       } catch {
         failed.push(item)
       }

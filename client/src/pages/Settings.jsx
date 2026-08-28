@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   User, Shield, SlidersHorizontal, Target, Info,
@@ -14,6 +14,7 @@ import { authApi, logsApi } from '../api/healthApi'
 import GlowIcon, { MoodIcon } from '../components/GlowIcon'
 import Layout from '../components/Layout'
 import NotificationSettings from '../components/NotificationSettings'
+import { convertHeight, convertHeightToMetric, convertWater, convertWaterToMetric, convertWeight, convertWeightToMetric, heightParts, waterUnit, weightUnit } from '../utils/units'
 
 const SECTIONS = [
   { id:'profile',     label:'Profile',     icon:User             },
@@ -99,6 +100,7 @@ function compressImage(file) {
 }
 
 function ProfileSection({ user, updateUser }) {
+  const units = user?.preferences?.units || 'metric'
   const fileRef = useRef()
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '')
   const [personal, setPersonal] = useState({
@@ -107,9 +109,19 @@ function ProfileSection({ user, updateUser }) {
     dateOfBirth: user?.dateOfBirth ? user.dateOfBirth.slice(0,10) : '',
     gender:      user?.gender      || '',
   })
-  const [height, setHeight]   = useState(user?.height || '')
+  const initialHeight = user?.height ? heightParts(user.height) : { feet:'', inches:'' }
+  const [height, setHeight] = useState(user?.height || '')
+  const [heightFeet, setHeightFeet] = useState(units === 'imperial' ? initialHeight.feet : '')
+  const [heightInches, setHeightInches] = useState(units === 'imperial' ? initialHeight.inches : '')
   const [loading, setLoading] = useState({ personal:false, height:false, avatar:false })
   const [status,  setStatus]  = useState({ personal:null,  height:null,  avatar:null  })
+
+  useEffect(() => {
+    const next = user?.height ? heightParts(user.height) : { feet:'', inches:'' }
+    setHeight(user?.height || '')
+    setHeightFeet(units === 'imperial' ? next.feet : '')
+    setHeightInches(units === 'imperial' ? next.inches : '')
+  }, [user?.height, units])
 
   const setL = (k,v) => setLoading(p=>({...p,[k]:v}))
   const setS = (k,v) => setStatus(p=>({...p,[k]:v}))
@@ -157,7 +169,10 @@ function ProfileSection({ user, updateUser }) {
   const saveHeight = async (e) => {
     e.preventDefault(); setL('height', true); setS('height', null)
     try {
-      const { data } = await authApi.updateProfile({ height: height ? Number(height) : null })
+      const value = units === 'imperial'
+        ? convertHeightToMetric(heightFeet, heightInches)
+        : (height ? Number(height) : null)
+      const { data } = await authApi.updateProfile({ height: value })
       updateUser(data.user)
       setS('height', { type:'success', msg:'Body metrics updated!' })
     } catch (err) {
@@ -250,13 +265,22 @@ function ProfileSection({ user, updateUser }) {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <GlowIcon icon={Ruler} color="amber" size="xs" />
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Height (cm)</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Height ({units === 'imperial' ? 'ft / in' : 'cm'})</label>
             </div>
-            <input type="number" className="input-field" value={height} min={50} max={300} step={1}
-              placeholder="e.g. 175" onChange={e => setHeight(e.target.value)} />
-            {height && (
+            {units === 'imperial' ? (
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" className="input-field" value={heightFeet} min={1} max={8} step={1}
+                  placeholder="Feet" onChange={e => setHeightFeet(e.target.value)} />
+                <input type="number" className="input-field" value={heightInches} min={0} max={11} step={1}
+                  placeholder="Inches" onChange={e => setHeightInches(e.target.value)} />
+              </div>
+            ) : (
+              <input type="number" className="input-field" value={height} min={50} max={300} step={1}
+                placeholder="e.g. 175" onChange={e => setHeight(e.target.value)} />
+            )}
+            {user?.height && (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {Math.floor(height/30.48)}'{Math.round((height%30.48)/2.54)}" in imperial
+                Stored as {convertHeight(user.height, units)}
               </p>
             )}
           </div>
@@ -271,6 +295,7 @@ function ProfileSection({ user, updateUser }) {
 function AccountSection({ user, updateUser }) {
   const navigate = useNavigate()
   const { signOut } = useAuth()
+  const units = user?.preferences?.units || 'metric'
   const [pw, setPw]   = useState({ current:'', new:'', confirm:'' })
   const [showPw, setShowPw] = useState({ current:false, new:false })
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -302,13 +327,18 @@ function AccountSection({ user, updateUser }) {
     try {
       const { data } = await logsApi.getAll({ limit:1000, page:1 })
       const logs = data.logs || []
-      const headers = ['Date','Steps','Sleep (hrs)','Water (ml)','Weight (kg)','Mood (1-5)','Notes']
+      const headers = ['Date','Steps','Sleep (hrs)',`Water (${waterUnit(units)})`,`Weight (${weightUnit(units)})`,'Mood (1-5)','Notes']
+      const csvValue = (value) => {
+        if (value == null) return ''
+        const text = Array.isArray(value) ? value.join(' | ') : String(value)
+        return /[",\n]/.test(text) ? `"${text.replace(/"/g,'""')}"` : text
+      }
       const rows = logs.map(l => [
-        l.date?.slice(0,10)||'', l.steps??'', l.sleepHours??'',
-        l.waterMl??'', l.weight??'', l.mood??'',
-        l.notes ? `"${l.notes.replace(/"/g,'""')}"` : '',
+        l.dateLocal || l.date?.slice(0,10) || '', l.steps, l.sleepHours,
+        l.waterMl != null ? convertWater(l.waterMl, units) : '',
+        l.weight != null ? convertWeight(l.weight, units) : '', l.mood, l.notes,
       ])
-      const csv  = [headers,...rows].map(r=>r.join(',')).join('\n')
+      const csv  = [headers,...rows].map(r=>r.map(csvValue).join(',')).join('\n')
       const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
@@ -468,10 +498,9 @@ function PreferencesSection({ user, updateUser }) {
   const lang  = user?.preferences?.language || 'en'
 
   const UNIT_OPTIONS = [
-    { id:'metric',   label:'Metric',   sub:'kg · cm · ml',     icon:Ruler,  color:'indigo' },
+    { id:'metric', label:'Metric', sub:'kg · cm · ml', icon:Ruler, color:'indigo' },
     { id:'imperial', label:'Imperial', sub:'lbs · ft · fl oz', icon:Globe,  color:'amber'  },
   ]
-
   const THEMES = [
     { id:'light',  label:'Light',  icon:Sun,     desc:'Always light' },
     { id:'dark',   label:'Dark',   icon:Moon,    desc:'Always dark'  },
@@ -557,15 +586,28 @@ function PreferencesSection({ user, updateUser }) {
 }
 
 function GoalsSection({ user, updateUser }) {
+  const units = user?.preferences?.units || 'metric'
   const [daily,   setDaily]   = useState({
     dailySteps:     user?.goals?.dailySteps     || '',
     dailySleepHours:user?.goals?.dailySleepHours|| '',
-    dailyWaterMl:   user?.goals?.dailyWaterMl   || '',
+    dailyWaterMl:   user?.goals?.dailyWaterMl != null ? convertWater(user.goals.dailyWaterMl, units) : '',
     targetMood:     user?.goals?.targetMood     || null,
   })
-  const [longterm, setLongterm] = useState({ targetWeight: user?.goals?.targetWeight || '' })
+  const [longterm, setLongterm] = useState({ targetWeight: user?.goals?.targetWeight != null ? convertWeight(user.goals.targetWeight, units) : '' })
   const [loading,  setLoading]  = useState({ daily:false, longterm:false })
   const [status,   setStatus]   = useState({ daily:null,  longterm:null  })
+
+  useEffect(() => {
+    setDaily({
+      dailySteps: user?.goals?.dailySteps || '',
+      dailySleepHours: user?.goals?.dailySleepHours || '',
+      dailyWaterMl: user?.goals?.dailyWaterMl != null ? convertWater(user.goals.dailyWaterMl, units) : '',
+      targetMood: user?.goals?.targetMood || null,
+    })
+    setLongterm({
+      targetWeight: user?.goals?.targetWeight != null ? convertWeight(user.goals.targetWeight, units) : '',
+    })
+  }, [user?.goals, units])
 
   const saveDaily = async (e) => {
     e.preventDefault(); setLoading(p=>({...p,daily:true})); setStatus(p=>({...p,daily:null}))
@@ -573,7 +615,7 @@ function GoalsSection({ user, updateUser }) {
       const payload = {}
       if (daily.dailySteps      !== '') payload.dailySteps      = Number(daily.dailySteps)
       if (daily.dailySleepHours !== '') payload.dailySleepHours = Number(daily.dailySleepHours)
-      if (daily.dailyWaterMl    !== '') payload.dailyWaterMl    = Number(daily.dailyWaterMl)
+      if (daily.dailyWaterMl    !== '') payload.dailyWaterMl    = convertWaterToMetric(Number(daily.dailyWaterMl), units)
       if (daily.targetMood)             payload.targetMood      = daily.targetMood
       const { data } = await authApi.updateGoals(payload)
       updateUser({ goals:data.user.goals })
@@ -587,7 +629,7 @@ function GoalsSection({ user, updateUser }) {
     e.preventDefault(); setLoading(p=>({...p,longterm:true})); setStatus(p=>({...p,longterm:null}))
     try {
       const payload = {}
-      if (longterm.targetWeight !== '') payload.targetWeight = Number(longterm.targetWeight)
+      if (longterm.targetWeight !== '') payload.targetWeight = convertWeightToMetric(Number(longterm.targetWeight), units)
       const { data } = await authApi.updateGoals(payload)
       updateUser({ goals:data.user.goals })
       setStatus(p=>({...p,longterm:{type:'success',msg:'Objectives saved!'}}))
@@ -599,7 +641,7 @@ function GoalsSection({ user, updateUser }) {
   const DAILY_FIELDS = [
     { key:'dailySteps',      icon:Footprints, color:'indigo', label:'Daily steps goal',         hint:'steps', min:0,  max:100000, step:500,  presets:[5000,7500,10000,12000], fmtPreset:v=>`${(v/1000).toFixed(v%1000?1:0)}k`, pColor:'indigo' },
     { key:'dailySleepHours', icon:Moon,       color:'purple', label:'Daily sleep goal',          hint:'hours', min:0,  max:24,     step:0.5,  presets:[6,7,8,9],              fmtPreset:v=>`${v}h`,                              pColor:'purple' },
-    { key:'dailyWaterMl',    icon:Droplets,   color:'cyan',   label:'Daily water goal',          hint:'ml',    min:0,  max:20000,  step:250,  presets:[1500,2000,2500,3000],  fmtPreset:v=>v>=1000?`${v/1000}L`:`${v}ml`,       pColor:'cyan'   },
+    { key:'dailyWaterMl',    icon:Droplets,   color:'cyan',   label:'Daily water goal',          hint:waterUnit(units), min:0, max:units === 'imperial' ? 676 : 20000, step:units === 'imperial' ? 8 : 250, presets:units === 'imperial' ? [51,68,85,101] : [1500,2000,2500,3000], fmtPreset:v=>`${v}${waterUnit(units)}`, pColor:'cyan' },
   ]
 
   const MOOD_OPTS = [
@@ -683,10 +725,10 @@ function GoalsSection({ user, updateUser }) {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <GlowIcon icon={Scale} color="amber" size="xs" />
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Target weight (kg)</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Target weight ({weightUnit(units)})</label>
             </div>
             <input type="number" className="input-field" value={longterm.targetWeight}
-              min={1} max={500} step={0.1} placeholder="e.g. 65.0"
+              min={units === 'imperial' ? 2.2 : 1} max={units === 'imperial' ? 1102 : 500} step={0.1} placeholder={units === 'imperial' ? 'e.g. 143.3' : 'e.g. 65.0'}
               onChange={e => setLongterm(p=>({...p,targetWeight:e.target.value}))} />
             {user?.goals?.targetWeight && user?.height && (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -765,23 +807,6 @@ function AboutSection() {
         </div>
       </GlassCard>
 
-      <GlassCard title="Support">
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          HealthTrack is an open-source assignment project. For issues or suggestions, open a GitHub issue on the repository.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label:'GitHub Repository', href:'https://github.com'               },
-            { label:'Groq Console',       href:'https://console.groq.com'         },
-            { label:'MongoDB Atlas',      href:'https://cloud.mongodb.com'        },
-          ].map(({ label, href }) => (
-            <a key={label} href={href} target="_blank" rel="noopener noreferrer"
-              className="btn-secondary text-xs py-1.5 px-3 gap-1.5">
-              <ChevronRight size={12}/>{label}
-            </a>
-          ))}
-        </div>
-      </GlassCard>
     </div>
   )
 }

@@ -3,6 +3,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp } from 'lucide-react'
 import GlowIcon from './GlowIcon'
 import { useTheme } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
+import { convertWater, convertWeight, waterUnit, weightUnit } from '../utils/units'
 
 const METRICS = [
   { key:'steps',      label:'Steps',  color:'#6366f1', unit:'steps', decimals:0, glowColor:'indigo' },
@@ -12,7 +14,7 @@ const METRICS = [
   { key:'mood',       label:'Mood',   color:'#10b981', unit:'/ 5',   decimals:0, glowColor:'green'  },
 ]
 
-function CustomTooltip({ active, payload, label, metric }) {
+function CustomTooltip({ active, payload, label, metric, units }) {
   if (!active || !payload?.length || payload[0].value == null) return null
   return (
     <div
@@ -25,12 +27,12 @@ function CustomTooltip({ active, payload, label, metric }) {
         boxShadow: `0 4px 20px rgba(0,0,0,0.1), 0 0 8px ${metric.color}33`,
       }}
     >
-      <p className="text-gray-500 text-xs mb-0.5">{label}</p>
+      <p className="text-gray-500 text-sm mb-0.5">{label}</p>
       <p className="font-semibold" style={{ color: metric.color }}>
         {metric.decimals === 0
           ? Number(payload[0].value).toLocaleString()
           : payload[0].value}{' '}
-        {metric.unit}
+        {metric.key === 'waterMl' ? waterUnit(units) : metric.key === 'weight' ? weightUnit(units) : metric.unit}
       </p>
     </div>
   )
@@ -39,6 +41,8 @@ function CustomTooltip({ active, payload, label, metric }) {
 export default function TrendChart({ logs }) {
   const [selectedKey, setSelectedKey] = useState('steps')
   const { dark } = useTheme()
+  const { user } = useAuth()
+  const units = user?.preferences?.units || 'metric'
   const metric = METRICS.find(m => m.key === selectedKey) || METRICS[0]
 
   // Ensure data is chronological: oldest -> newest (left -> right on chart)
@@ -47,7 +51,11 @@ export default function TrendChart({ logs }) {
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .map(log => ({
       date: new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      value: log[metric.key] != null ? parseFloat(log[metric.key].toFixed(metric.decimals)) : null,
+      value: log[metric.key] != null
+        ? metric.key === 'waterMl' ? convertWater(log.waterMl, units)
+        : metric.key === 'weight' ? convertWeight(log.weight, units)
+        : parseFloat(log[metric.key].toFixed(metric.decimals))
+        : null,
     }))
 
   const hasData = data.some(d => d.value != null)
@@ -63,7 +71,7 @@ export default function TrendChart({ logs }) {
             <button
               key={m.key}
               onClick={() => setSelectedKey(m.key)}
-              className="px-3 py-1 rounded-full text-xs font-medium transition-all duration-200"
+              className="px-3 py-1 rounded-full text-sm font-medium transition-all duration-200"
               style={
                 selectedKey === m.key
                   ? {
@@ -87,15 +95,15 @@ export default function TrendChart({ logs }) {
         <div className="h-48 flex flex-col items-center justify-center gap-3 text-gray-400 dark:text-gray-600">
           <GlowIcon icon={TrendingUp} color="indigo" size="lg" />
           <p className="text-sm">No {metric.label.toLowerCase()} data yet</p>
-          <p className="text-xs opacity-70">Start logging to see your trends</p>
+          <p className="text-sm opacity-70">Start logging to see your trends</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={data} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+          <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} domain={metric.key === 'mood' ? [1, 5] : ['auto', 'auto']} />
-            <Tooltip content={props => <CustomTooltip {...props} metric={metric} />} />
+            <XAxis dataKey="date" padding={{ left: 12, right: 12 }} tick={{ fontSize: 13, fill: tickColor }} tickMargin={8} axisLine={false} tickLine={false} />
+            <YAxis width={48} tick={{ fontSize: 13, fill: tickColor }} tickMargin={5} axisLine={false} tickLine={false} domain={metric.key === 'mood' ? [1, 5] : ['auto', 'auto']} />
+            <Tooltip content={props => <CustomTooltip {...props} metric={metric} units={units} />} />
             <Line
               type="monotone"
               dataKey="value"

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const Insight = require('../models/Insight');
-const HealthLog = require('../models/HealthLog');
+const DailyHealthLog = require('../models/DailyHealthLog');
 const { getWeeklyInsight } = require('../services/aiService');
 
 router.use(authMiddleware);
@@ -23,7 +23,7 @@ router.get('/weekly', async (req, res) => {
       return res.json({ insight: cached.content, cached: true });
     }
 
-    const logs = await HealthLog.find({
+    const logs = await DailyHealthLog.find({
       userId: req.userId,
       date: { $gte: weekStart },
     });

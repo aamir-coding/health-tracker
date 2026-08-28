@@ -16,5 +16,13 @@ export const convertHeight = (cm, units) => {
   return `${Math.floor(totalIn / 12)}'${Math.round(totalIn % 12)}"`
 }
 
+export const heightParts = (cm) => {
+  const totalIn = cm / 2.54
+  return { feet: Math.floor(totalIn / 12), inches: Math.round(totalIn % 12) }
+}
+
+export const convertHeightToMetric = (feet, inches) =>
+  Math.round((Number(feet) * 12 + Number(inches)) * 2.54 * 10) / 10
+
 export const weightUnit = (units) => units === 'imperial' ? 'lbs' : 'kg'
 export const waterUnit = (units) => units === 'imperial' ? 'fl oz' : 'ml'

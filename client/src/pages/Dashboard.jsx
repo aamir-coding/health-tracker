@@ -2,15 +2,15 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   SquarePen, Footprints, Moon, Droplets, Smile, HeartPulse,
-  Flame, Trophy, Sprout, Target, Activity, Heart,
+  Flame, Trophy, Sprout, Target, Activity, Heart, Plus,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { logsApi, authApi } from '../api/healthApi'
 import { useSocket } from '../hooks/useSocket'
-import { convertWeight, convertWater, weightUnit, waterUnit } from '../utils/units'
+import { useOfflineQueue } from '../hooks/useOfflineQueue'
+import { convertHeight, convertHeightToMetric, convertWeight, convertWater, weightUnit, waterUnit } from '../utils/units'
 import GlowIcon from '../components/GlowIcon'
 import Layout from '../components/Layout'
-import MetricCard from '../components/MetricCard'
 import TrendChart from '../components/TrendChart'
 import InsightCard from '../components/InsightCard'
 import ActivityHeatmap from '../components/ActivityHeatmap'
@@ -32,12 +32,6 @@ const todayLocal = () => {
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
-}
-
-const formatLogDate = (log) => {
-  if (!log) return null
-  const date = log.dateLocal ? new Date(`${log.dateLocal}T00:00:00`) : new Date(log.date)
-  return date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
 }
 
 function computeHealthScore(avg) {
@@ -74,11 +68,14 @@ const GOAL_ITEMS = [
   { key:'mood',       label:'Mood',   icon:Smile,      color:'green',  fmt:(v)=>`${v}/5`,            glowCls:'bg-green-500'  },
 ]
 
-function GoalsProgress({ goals, todayLog }) {
+function GoalsProgress({ goals, todayLog, units }) {
   const items = GOAL_ITEMS.map(m => ({
     ...m,
     actual: todayLog ? todayLog[m.key === 'mood' ? 'mood' : m.key] : 0,
     target: m.key === 'mood' ? goals?.targetMood : goals?.[`daily${m.key.charAt(0).toUpperCase() + m.key.slice(1)}`],
+    fmt: m.key === 'waterMl'
+      ? (v) => `${convertWater(v, units)}${waterUnit(units)}`
+      : m.fmt,
   })).filter(i => i.target != null)
 
   if (!items.length) return null
@@ -90,7 +87,7 @@ function GoalsProgress({ goals, todayLog }) {
           <GlowIcon icon={Target} color="green" size="md" />
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Today's goals</h2>
         </div>
-        <Link to="/settings" className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline">
+              <Link to="/settings" className="text-sm text-indigo-500 dark:text-indigo-400 hover:underline">
           Edit goals
         </Link>
       </div>
@@ -105,7 +102,7 @@ function GoalsProgress({ goals, todayLog }) {
                   <GlowIcon icon={icon} color={color} size="xs" />
                   <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
                 </div>
-                <span className={`text-xs font-medium tabular-nums ${met ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                <span className={`text-sm font-medium tabular-nums ${met ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   {actual != null ? fmt(actual) : '—'} / {fmt(target)}{met && ' ✓'}
                 </span>
               </div>
@@ -145,7 +142,10 @@ export default function Dashboard() {
   const [recentLogs, setRecentLogs] = useState([])
   const [streak, setStreak]       = useState({ streak:0, longest:0 })
   const [loading, setLoading]     = useState(true)
+  const [updatingField, setUpdatingField] = useState(null)
   const [heightInput, setHeightInput] = useState('')
+  const [heightFeetInput, setHeightFeetInput] = useState('')
+  const [heightInchesInput, setHeightInchesInput] = useState('')
   const [settingHeight, setSettingHeight] = useState(false)
 
   const fetchData = useCallback(async () => {
@@ -163,17 +163,23 @@ export default function Dashboard() {
     }
   }, [])
 
+  const { enqueue } = useOfflineQueue({ onSync: fetchData })
+
   useEffect(() => { fetchData() }, [fetchData])
   useSocket({ onLogNew: fetchData, onLogUpdated: fetchData, onLogDeleted: fetchData })
 
   const handleSetHeight = async () => {
-    const h = parseFloat(heightInput)
+    const h = units === 'imperial'
+      ? convertHeightToMetric(heightFeetInput, heightInchesInput)
+      : parseFloat(heightInput)
     if (!h || h < 50 || h > 300) return
     setSettingHeight(true)
     try {
       const { data } = await authApi.updateProfile({ height: h })
       updateUser({ height: data.user.height })
       setHeightInput('')
+      setHeightFeetInput('')
+      setHeightInchesInput('')
     } catch (err) {
       console.error(err)
     } finally {
@@ -181,11 +187,28 @@ export default function Dashboard() {
     }
   }
 
+  const handleIncrement = async (field, amount) => {
+    setUpdatingField(field)
+    const dateLocal = todayLocal()
+    try {
+      if (!navigator.onLine) throw new Error('offline')
+      await logsApi.increment(field, amount, dateLocal)
+      await fetchData()
+    } catch (err) {
+      if (err.code === 'ERR_NETWORK' || err.message === 'offline' || err.message?.includes('Network')) {
+        enqueue({ field, amount, dateLocal }, 'increment')
+      } else {
+        console.error(err)
+      }
+    } finally {
+      setUpdatingField(null)
+    }
+  }
+
   const units   = user?.preferences?.units || 'metric'
   const latest  = stats?.latest
   const avg     = stats?.averages || {}
   const todayLog = recentLogs.find(log => log.dateLocal === todayLocal())
-  const latestDateLabel = formatLogDate(latest)
 
   const bmi = user?.height && latest?.weight
     ? (latest.weight / Math.pow(user.height / 100, 2)).toFixed(1) : null
@@ -193,36 +216,8 @@ export default function Dashboard() {
   const healthScore = computeHealthScore(avg)
   const scoreMeta   = healthScore != null ? scoreLabel(healthScore) : null
 
-  const metricCards = [
-    {
-      label:'Steps',
-      value: latest?.steps != null ? latest.steps.toLocaleString() : null,
-      unit:'steps',
-      icon: <GlowIcon icon={Footprints} color="indigo" size="sm" />,
-      sub: avg.steps != null ? `30d avg: ${Math.round(avg.steps).toLocaleString()}` : null,
-    },
-    {
-      label:'Sleep',
-      value: latest?.sleepHours ?? null,
-      unit:'hrs',
-      icon: <GlowIcon icon={Moon} color="purple" size="sm" />,
-      sub: avg.sleepHours != null ? `30d avg: ${avg.sleepHours}hrs` : null,
-    },
-    {
-      label:'Water',
-      value: latest?.waterMl != null ? convertWater(latest.waterMl, units) : null,
-      unit: waterUnit(units),
-      icon: <GlowIcon icon={Droplets} color="cyan" size="sm" />,
-      sub: avg.waterMl != null ? `30d avg: ${convertWater(Math.round(avg.waterMl), units)}${waterUnit(units)}` : null,
-    },
-    {
-      label:'Mood',
-      value: latest?.mood ?? null,
-      unit:'/ 5',
-      icon: <GlowIcon icon={Smile} color="green" size="sm" />,
-      sub: latest?.mood != null ? MOOD_LABELS[latest.mood] : null,
-    },
-  ]
+  const todaySteps = todayLog?.steps || 0
+  const todayWater = todayLog?.waterMl || 0
 
   return (
     <Layout streak={streak.streak}>
@@ -253,7 +248,7 @@ export default function Dashboard() {
                 <div className="font-bold text-orange-800 dark:text-orange-300 text-base">
                   {streak.streak} day streak!
                 </div>
-                <div className="text-orange-500 text-xs">
+                <div className="text-orange-500 text-sm">
                   Personal best: {streak.longest} days · keep logging daily
                 </div>
               </div>
@@ -277,21 +272,56 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Latest entry metrics */}
+          {/* Today's activity */}
           <div>
             <div className="flex items-baseline justify-between gap-3 mb-3">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Latest entry</h2>
-              {latestDateLabel && (
-                <span className="text-xs text-gray-400 dark:text-gray-500">{latestDateLabel}</span>
-              )}
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Today's activity</h2>
+              <Link to="/log" className="text-sm text-indigo-500 dark:text-indigo-400 hover:underline">Today's log</Link>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {metricCards.map(m => <MetricCard key={m.label} {...m} />)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="card p-4 lg:p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <GlowIcon icon={Footprints} color="indigo" size="sm" />
+                    <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Steps</span>
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-1.5 mb-4">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{todaySteps.toLocaleString()}</span>
+                  <span className="text-sm text-gray-400 dark:text-gray-500">steps</span>
+                </div>
+                <div className="flex gap-2">
+                  {[500, 1000].map(amount => (
+                    <button key={amount} onClick={() => handleIncrement('steps', amount)} disabled={updatingField === 'steps'} className="btn-secondary flex-1 gap-1.5 py-2 text-sm">
+                      <Plus size={13} />{amount.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="card p-4 lg:p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <GlowIcon icon={Droplets} color="cyan" size="sm" />
+                    <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Water</span>
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-1.5 mb-4">
+                  <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{convertWater(todayWater, units)}</span>
+                  <span className="text-sm text-gray-400 dark:text-gray-500">{waterUnit(units)}</span>
+                </div>
+                <div className="flex gap-2">
+                  {[250, 500].map(amount => (
+                    <button key={amount} onClick={() => handleIncrement('waterMl', amount)} disabled={updatingField === 'waterMl'} className="btn-secondary flex-1 gap-1.5 py-2 text-sm">
+                      <Plus size={13} />{convertWater(amount, units)}{waterUnit(units)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Goals */}
-          <GoalsProgress goals={user?.goals} todayLog={todayLog} />
+          <GoalsProgress goals={user?.goals} todayLog={todayLog} units={units} />
 
           {/* BMI + Health score */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -299,7 +329,7 @@ export default function Dashboard() {
             <div className="card p-5">
               <div className="flex items-center gap-2.5 mb-3">
                 <GlowIcon icon={HeartPulse} color="amber" size="sm" />
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">BMI</span>
+                <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">BMI</span>
               </div>
               {bmi ? (
                 <>
@@ -307,9 +337,9 @@ export default function Dashboard() {
                     <span className="text-3xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{bmi}</span>
                     <span className={`text-sm font-semibold ${bmiCat.color}`}>{bmiCat.label}</span>
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {convertWeight(latest?.weight, units)}{weightUnit(units)} · {user.height}cm
-                    {user?.goals?.targetWeight && ` · target: ${user.goals.targetWeight}kg`}
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    {convertWeight(latest?.weight, units)}{weightUnit(units)} · {convertHeight(user.height, units)}
+                    {user?.goals?.targetWeight && ` · target: ${convertWeight(user.goals.targetWeight, units)}${weightUnit(units)}`}
                   </p>
                   <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.07)' }}>
                     <div
@@ -330,7 +360,7 @@ export default function Dashboard() {
                       boxShadow: '0 0 6px rgba(99,102,241,0.7)',
                     }}
                   />
-                  <div className="flex justify-between text-xs text-gray-300 dark:text-gray-600 mt-1">
+                  <div className="flex justify-between text-sm text-gray-300 dark:text-gray-600 mt-1">
                     <span>15</span><span>18.5</span><span>25</span><span>30</span><span>40</span>
                   </div>
                 </>
@@ -338,18 +368,20 @@ export default function Dashboard() {
                 <>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Enter your height to calculate BMI</p>
                   <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="Height (cm)"
-                      min={50} max={300} step={1}
-                      value={heightInput}
-                      onChange={e => setHeightInput(e.target.value)}
-                      className="input-field"
-                      onKeyDown={e => e.key === 'Enter' && handleSetHeight()}
-                    />
+                    {units === 'imperial' ? (
+                      <>
+                        <input type="number" placeholder="Feet" min={1} max={8} step={1}
+                          value={heightFeetInput} onChange={e => setHeightFeetInput(e.target.value)} className="input-field" />
+                        <input type="number" placeholder="Inches" min={0} max={11} step={1}
+                          value={heightInchesInput} onChange={e => setHeightInchesInput(e.target.value)} className="input-field" onKeyDown={e => e.key === 'Enter' && handleSetHeight()} />
+                      </>
+                    ) : (
+                      <input type="number" placeholder="Height (cm)" min={50} max={300} step={1}
+                        value={heightInput} onChange={e => setHeightInput(e.target.value)} className="input-field" onKeyDown={e => e.key === 'Enter' && handleSetHeight()} />
+                    )}
                     <button
                       onClick={handleSetHeight}
-                      disabled={settingHeight || !heightInput}
+                      disabled={settingHeight || (units === 'imperial' ? !heightFeetInput : !heightInput)}
                       className="btn-primary flex-shrink-0"
                     >
                       {settingHeight ? '…' : 'Save'}
@@ -367,7 +399,7 @@ export default function Dashboard() {
             <div className="card p-5">
               <div className="flex items-center gap-2.5 mb-3">
                 <GlowIcon icon={Activity} color="indigo" size="sm" />
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Health score
                 </span>
               </div>
@@ -380,7 +412,7 @@ export default function Dashboard() {
                     <span className="text-sm text-gray-400 dark:text-gray-500">/ 100</span>
                     <span className={`text-sm font-semibold ${scoreMeta.color}`}>{scoreMeta.text}</span>
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Based on 30-day averages</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Based on 30-day averages</p>
                   <div className="mt-3 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.07)' }}>
                     <div
                       className={`h-full rounded-full transition-all duration-700 ${
@@ -410,7 +442,7 @@ export default function Dashboard() {
 
           {stats?.total > 0 && (
             <p className="text-center text-xs text-gray-400 dark:text-gray-600 pb-2">
-              {stats.total} total log{stats.total !== 1 ? 's' : ''} ·{' '}
+              {stats.total} day{stats.total !== 1 ? 's' : ''} recorded ·{' '}
               <Link to="/history" className="text-indigo-500 hover:underline">View all history</Link>
             </p>
           )}

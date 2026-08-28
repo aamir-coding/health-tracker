@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Minus, Footprints, Moon, Droplets, Smile, Scale } from 'lucide-react'
 import GlowIcon from './GlowIcon'
 import { logsApi } from '../api/healthApi'
+import { useAuth } from '../context/AuthContext'
+import { convertWater, convertWeight, waterUnit, weightUnit } from '../utils/units'
 
 const METRICS = [
   { key:'steps',      label:'Steps',  icon:Footprints, color:'indigo', unit:'steps', better:'up',  fmt:v => Math.round(v).toLocaleString() },
@@ -36,7 +38,21 @@ function Delta({ curr, prev, better }) {
   )
 }
 
+function fmtValue(value, key, units) {
+  if (key === 'waterMl') return Math.round(convertWater(value, units)).toLocaleString()
+  if (key === 'weight') return convertWeight(value, units).toFixed(1)
+  return METRICS.find(metric => metric.key === key).fmt(value)
+}
+
+function displayUnit(key, unit, units) {
+  if (key === 'waterMl') return waterUnit(units)
+  if (key === 'weight') return weightUnit(units)
+  return unit
+}
+
 export default function WeekComparison() {
+  const { user } = useAuth()
+  const units = user?.preferences?.units || 'metric'
   const [data, setData]     = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -66,7 +82,7 @@ export default function WeekComparison() {
               {['Metric', 'Last week', 'This week', 'Change'].map((h, i) => (
                 <th
                   key={h}
-                  className={`pb-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 ${i === 0 ? 'text-left' : 'text-right'}`}
+                  className={`pb-2.5 text-sm font-medium text-gray-400 dark:text-gray-500 ${i === 0 ? 'text-left' : 'text-right'}`}
                 >
                   {h}
                 </th>
@@ -87,14 +103,14 @@ export default function WeekComparison() {
                   <td className="py-2.5">
                     <div className="flex items-center gap-2">
                       <GlowIcon icon={icon} color={color} size="xs" />
-                      <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
                     </div>
                   </td>
-                  <td className="py-2.5 text-right text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                    {prev != null ? `${fmt(prev)} ${unit}` : '—'}
+                  <td className="py-2.5 text-right text-sm text-gray-400 dark:text-gray-500 tabular-nums">
+                    {prev != null ? `${fmtValue(prev, key, units)} ${displayUnit(key, unit, units)}` : '—'}
                   </td>
-                  <td className="py-2.5 text-right font-medium text-gray-800 dark:text-gray-200 text-xs tabular-nums">
-                    {curr != null ? `${fmt(curr)} ${unit}` : '—'}
+                  <td className="py-2.5 text-right font-medium text-gray-800 dark:text-gray-200 text-sm tabular-nums">
+                    {curr != null ? `${fmtValue(curr, key, units)} ${displayUnit(key, unit, units)}` : '—'}
                   </td>
                   <td className="py-2.5">
                     <div className="flex justify-end">

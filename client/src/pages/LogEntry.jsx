@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { logsApi }           from '../api/healthApi'
 import { useOfflineQueue }   from '../hooks/useOfflineQueue'
+import { convertWater, convertWaterToMetric, convertWeight, convertWeightToMetric, waterUnit, weightUnit } from '../utils/units'
+import { useAuth }           from '../context/AuthContext'
 import GlowIcon              from '../components/GlowIcon'
 import Layout                from '../components/Layout'
 
@@ -43,30 +45,57 @@ export default function LogEntry() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const existing  = location.state?.log
+    const { user } = useAuth()
+    const units = user?.preferences?.units || 'metric'
   const { enqueue } = useOfflineQueue()
 
+  const [dailyRecord, setDailyRecord] = useState(existing || null)
   const [form, setForm] = useState({
     date:'', steps:'', sleepHours:'', waterMl:'', weight:'', mood:null, notes:'',
   })
+  const [initializing,   setInitializing] = useState(!existing)
   const [loading,      setLoading]      = useState(false)
   const [success,      setSuccess]      = useState(false)
   const [offlineSaved, setOfflineSaved] = useState(false)
   const [error,        setError]        = useState('')
 
-  // Cleaner init: always sets form, handles both edit and create in one place
+  const populateForm = (record) => setForm(record
+    ? {
+        date:       record.dateLocal || record.date?.slice(0, 10) || today(),
+        steps:      record.steps       ?? '',
+        sleepHours: record.sleepHours  ?? '',
+        waterMl:    record.waterMl != null ? convertWater(record.waterMl, units) : '',
+        weight:     record.weight != null ? convertWeight(record.weight, units) : '',
+        mood:       record.mood        ?? null,
+        notes:      Array.isArray(record.notes) ? record.notes.join('\n') : record.notes ?? '',
+      }
+    : { date:today(), steps:'', sleepHours:'', waterMl:'', weight:'', mood:null, notes:'' }
+  )
+
   useEffect(() => {
-    setForm(existing
-      ? {
-          date:       existing.date?.slice(0, 10) || today(),
-          steps:      existing.steps       ?? '',
-          sleepHours: existing.sleepHours  ?? '',
-          waterMl:    existing.waterMl     ?? '',
-          weight:     existing.weight      ?? '',
-          mood:       existing.mood        ?? null,
-          notes:      existing.notes       ?? '',
+    let cancelled = false
+    const loadToday = async () => {
+      if (existing) {
+        populateForm(existing)
+        return
+      }
+      try {
+        const { data } = await logsApi.getDay(today())
+        if (!cancelled) {
+          setDailyRecord(data.log)
+          populateForm(data.log)
         }
-      : { date:today(), steps:'', sleepHours:'', waterMl:'', weight:'', mood:null, notes:'' }
-    )
+      } catch (err) {
+        if (!cancelled && err.response?.status !== 404) {
+          setError('Could not load today\'s log. Please try again.')
+        }
+        if (!cancelled && err.response?.status === 404) populateForm(null)
+      } finally {
+        if (!cancelled) setInitializing(false)
+      }
+    }
+    loadToday()
+    return () => { cancelled = true }
   }, [])
 
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }))
@@ -75,7 +104,7 @@ export default function LogEntry() {
   const isWholeNumber       = (value) => value === '' || /^\d+$/.test(value)
   const isDecimalOnePlace   = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
   const isSleepValid        = (value) => value === '' || /^\d+(\.\d)?$/.test(value)
-  const isWaterValid        = (value) => value === '' || /^\d+$/.test(value)
+  const isWaterValid        = (value) => value === '' || (units === 'imperial' ? /^\d+(\.\d)?$/.test(value) : /^\d+$/.test(value))
   const withinRange         = (value, min, max) => value === '' || (Number(value) >= min && Number(value) <= max)
 
   // Preserves dateLocal alongside ISO string — backend may rely on both
@@ -84,8 +113,14 @@ export default function LogEntry() {
       date:      new Date(obj.date).toISOString(),
       dateLocal: obj.date,
     }
-    for (const k of ['steps','sleepHours','waterMl','weight','mood']) {
+    for (const k of ['steps','sleepHours','mood']) {
       if (obj[k] !== '' && obj[k] !== null && obj[k] !== undefined) out[k] = Number(obj[k])
+    }
+    if (obj.waterMl !== '' && obj.waterMl !== null && obj.waterMl !== undefined) {
+      out.waterMl = convertWaterToMetric(Number(obj.waterMl), units)
+    }
+    if (obj.weight !== '' && obj.weight !== null && obj.weight !== undefined) {
+      out.weight = convertWeightToMetric(Number(obj.weight), units)
     }
     if (obj.notes?.trim()) out.notes = obj.notes.trim()
     return out
@@ -100,16 +135,16 @@ export default function LogEntry() {
       setError('Steps must be a whole number between 0 and 100,000.')
       return
     }
-    if (!isDecimalOnePlace(form.weight) || !withinRange(form.weight, 1, 500)) {
-      setError('Weight must be a number with at most one decimal place.')
+    if (!isDecimalOnePlace(form.weight) || !withinRange(form.weight, units === 'imperial' ? 2.2 : 1, units === 'imperial' ? 1102 : 500)) {
+      setError(`Weight must be a number with at most one decimal place in ${weightUnit(units)}.`)
       return
     }
     if (!isSleepValid(form.sleepHours) || !withinRange(form.sleepHours, 0, 24)) {
       setError('Sleep must be a number with at most one decimal place.')
       return
     }
-    if (!isWaterValid(form.waterMl) || !withinRange(form.waterMl, 0, 20000)) {
-      setError('Water must be a whole number between 0 and 20,000.')
+    if (!isWaterValid(form.waterMl) || !withinRange(form.waterMl, 0, units === 'imperial' ? 676.3 : 20000)) {
+      setError(`Water must be a whole number between 0 and ${waterUnit(units)} limit.`)
       return
     }
 
@@ -118,7 +153,7 @@ export default function LogEntry() {
 
     // Offline path — enqueue and return early
     if (!navigator.onLine) {
-      enqueue(payload, existing ? 'update' : 'create', existing?._id)
+      enqueue(payload, dailyRecord ? 'update' : 'create', dailyRecord?._id)
       setOfflineSaved(true)
       setLoading(false)
       setTimeout(() => navigate('/'), 1600)
@@ -126,14 +161,14 @@ export default function LogEntry() {
     }
 
     try {
-      if (existing) await logsApi.update(existing._id, payload)
+      if (dailyRecord) await logsApi.update(dailyRecord._id, payload)
       else          await logsApi.create(payload)
       setSuccess(true)
       setTimeout(() => navigate('/'), 1400)
     } catch (err) {
       // Treat a network failure (even when onLine was true) as an offline event
       if (err.code === 'ERR_NETWORK' || err.message?.includes('Network')) {
-        enqueue(payload, existing ? 'update' : 'create', existing?._id)
+        enqueue(payload, dailyRecord ? 'update' : 'create', dailyRecord?._id)
         setOfflineSaved(true)
         setLoading(false)
         setTimeout(() => navigate('/'), 1600)
@@ -160,12 +195,12 @@ export default function LogEntry() {
           >
             <ChevronLeft size={20} />
           </button>
-          <div>
+          <div aria-busy={initializing}>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              {existing ? 'Edit log entry' : 'Log health data'}
+              {initializing ? 'Loading today\'s log…' : dailyRecord ? (dailyRecord.dateLocal === today() ? 'Update today\'s log' : 'Edit daily log') : 'Today\'s log'}
             </h1>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-              All fields optional — log what you tracked today
+              Save one summary for this day. Update steps and water as your totals grow.
             </p>
           </div>
         </div>
@@ -212,7 +247,7 @@ export default function LogEntry() {
             {/* Steps + Sleep */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <IconLabel icon={Footprints} color="indigo" hint="0–100,000">Steps</IconLabel>
+                <IconLabel icon={Footprints} color="indigo" hint="daily total">Steps</IconLabel>
                 <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 7500"
                   value={form.steps} onChange={e => set('steps', e.target.value)} />
               </div>
@@ -226,13 +261,13 @@ export default function LogEntry() {
             {/* Water + Weight */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <IconLabel icon={Droplets} color="cyan" hint="ml">Water</IconLabel>
-                <input type="text" inputMode="numeric" className="input-field" placeholder="e.g. 2130"
+                <IconLabel icon={Droplets} color="cyan" hint={`daily total · ${waterUnit(units)}`}>Water</IconLabel>
+                <input type="text" inputMode="numeric" className="input-field" placeholder={units === 'imperial' ? 'e.g. 72' : 'e.g. 2130'}
                   value={form.waterMl} onChange={e => set('waterMl', e.target.value)} />
               </div>
               <div>
-                <IconLabel icon={Scale} color="amber" hint="kg">Weight</IconLabel>
-                <input type="text" inputMode="decimal" className="input-field" placeholder="e.g. 68.5"
+                <IconLabel icon={Scale} color="amber" hint={weightUnit(units)}>Weight</IconLabel>
+                <input type="text" inputMode="decimal" className="input-field" placeholder={units === 'imperial' ? 'e.g. 151' : 'e.g. 68.5'}
                   value={form.weight} onChange={e => set('weight', e.target.value)} />
               </div>
             </div>
@@ -288,13 +323,13 @@ export default function LogEntry() {
                 type="button"
                 onClick={() => navigate(-1)}
                 className="btn-secondary flex-1"
-                disabled={loading || success || offlineSaved}
+                disabled={loading || initializing || success || offlineSaved}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={loading || success || offlineSaved}
+                disabled={loading || initializing || success || offlineSaved}
                 className="btn-primary flex-1"
               >
                 {loading ? (
@@ -302,7 +337,7 @@ export default function LogEntry() {
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Saving…
                   </span>
-                ) : existing ? 'Update log' : 'Save log'}
+                ) : dailyRecord ? 'Update daily log' : 'Save today\'s log'}
               </button>
             </div>
           </form>

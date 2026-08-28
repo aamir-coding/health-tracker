@@ -4,14 +4,11 @@ import { useSocket } from '../hooks/useSocket'
 
 const COLORS = [
   'bg-gray-100 dark:bg-gray-800',
-  'bg-indigo-300 dark:bg-indigo-600',
-  'bg-indigo-600 dark:bg-indigo-400',
+  'bg-indigo-500 dark:bg-indigo-300',
 ]
 
 function intensity(count) {
-  if (!count) return 0
-  if (count === 1) return 1
-  return 2
+  return count ? 1 : 0
 }
 
 export default function ActivityHeatmap() {
@@ -65,8 +62,10 @@ export default function ActivityHeatmap() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
+  // Build complete Monday-to-Sunday columns so dates stay in their real weekday rows.
+  const daysSinceMonday = (today.getDay() + 6) % 7
   const start = new Date(today)
-  start.setDate(today.getDate() - 111)
+  start.setDate(today.getDate() - daysSinceMonday - (15 * 7))
 
   // Format a Date to local YYYY-MM-DD (avoids UTC shifts from toISOString)
   const formatLocalDateKey = (d) => {
@@ -105,13 +104,13 @@ export default function ActivityHeatmap() {
       <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Activity — last 16 weeks</h2>
 
       <div className="relative">
-        <div className="overflow-x-auto">
-        <div style={{ minWidth: 520 }}>
-          <div style={{ display: 'flex', marginBottom: 4, marginLeft: 20 }}>
+        <div>
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(16, minmax(0, 1fr))', gap: 4, marginBottom: 4, marginLeft: 20 }}>
             {weeks.map((week, wi) => {
               const m = months.find(mo => mo.col === wi)
               return (
-                <div key={wi} style={{ width: 14, marginRight: 2, flexShrink: 0, fontSize: 10 }}
+                <div key={wi} style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', fontSize: 11 }}
                   className="text-gray-400 dark:text-gray-600">
                   {m ? m.label : ''}
                 </div>
@@ -119,37 +118,28 @@ export default function ActivityHeatmap() {
             })}
           </div>
 
-          <div style={{ display: 'flex', gap: 2 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginRight: 2 }}>
-              {['S','M','T','W','T','F','S'].map((d, i) => (
-                <div key={i} style={{ width: 12, height: 12, fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  className="text-gray-400 dark:text-gray-600">
-                  {i % 2 === 1 ? d : ''}
-                </div>
-              ))}
-            </div>
-
-            {weeks.map((week, wi) => (
-              <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {week.map((day, di) => (
-                  <div
-                    key={di}
-                    className={`rounded-sm ${day.future ? 'opacity-0' : COLORS[intensity(day.count)]}`}
-                    style={{ width: 12, height: 12, cursor: day.future ? 'default' : 'default' }}
-                    onMouseEnter={(e) => showTooltip(day, e.currentTarget)}
-                    onMouseLeave={() => setTooltip(null)}
-                  />
-                ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '20px repeat(16, minmax(0, 1fr))', gridTemplateRows: 'repeat(7, minmax(0, 1fr))', gap: 4, alignItems: 'center' }}>
+            {['M','T','W','T','F','S','S'].map((label, row) => (
+              <div key={`label-${row}`} style={{ gridColumn: 1, gridRow: row + 1, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                className="text-gray-400 dark:text-gray-600">
+                {label}
               </div>
             ))}
+
+            {weeks.map((week, wi) => week.map((day, di) => (
+              <div
+                key={`${wi}-${di}`}
+                className={`rounded-[3px] ${day.future ? 'opacity-0' : COLORS[intensity(day.count)]}`}
+                style={{ gridColumn: wi + 2, gridRow: di + 1, width: '82%', aspectRatio: '1', justifySelf: 'center', cursor: day.future ? 'default' : 'default' }}
+                onMouseEnter={(e) => showTooltip(day, e.currentTarget)}
+                onMouseLeave={() => setTooltip(null)}
+              />
+            )))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 10, justifyContent: 'flex-end' }}>
-            <span className="text-gray-400 dark:text-gray-500" style={{ fontSize: 11 }}>Less</span>
-            {COLORS.map((cls, i) => (
-              <div key={i} className={`rounded-sm ${cls}`} style={{ width: 12, height: 12 }} />
-            ))}
-            <span className="text-gray-400 dark:text-gray-500" style={{ fontSize: 11 }}>More</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, justifyContent: 'flex-end' }}>
+            <div className={`rounded-sm ${COLORS[1]}`} style={{ width: 12, height: 12 }} />
+            <span className="text-sm text-gray-400 dark:text-gray-500">Recorded</span>
           </div>
         </div>
       </div>
@@ -157,11 +147,11 @@ export default function ActivityHeatmap() {
 
       {tooltip && (
         <div
-          className="absolute z-50 bg-gray-900 dark:bg-gray-700 text-white text-xs px-2.5 py-1.5 rounded-lg pointer-events-none shadow-lg"
+          className="absolute z-50 bg-gray-900 dark:bg-gray-700 text-white text-sm px-2.5 py-1.5 rounded-lg pointer-events-none shadow-lg"
           style={{ left: tooltip.x, top: tooltip.y }}
         >
           <div className="font-medium">{tooltip.text}</div>
-          <div className="text-gray-300">{tooltip.count} log{tooltip.count !== 1 ? 's' : ''} logged</div>
+          <div className="text-gray-300">{tooltip.count ? 'Day recorded' : 'No record'}</div>
         </div>
       )}
     </div>
